@@ -1,0 +1,435 @@
+openapi: 3.2.1
+info:
+  title: 購物車與結帳 API
+  version: 0.1.0
+  description: |
+    `後端端點` 的 HTTP API 契約，由 api-plan 依 plan.md 的系統介面盤點產出。
+    每個 tag 對應 plan.md 的一個後端系統介面，名稱一字不差；即時事件見同目錄的 asyncapi.yaml。
+    每支 API 的錯誤回應各自列出可能的錯誤碼與發生情況，錯誤本體一律使用 `Error` 格式。
+servers:
+  - url: /api
+    description: 與前端同源部署
+
+tags:
+  - name: 後端共通介面
+    description: 匿名購物 session、錯誤碼與不曝露內部資訊的回應格式、寫入請求的冪等鍵
+  - name: 購物車 API 介面
+    description: 購物車查詢、加入商品、修改數量、移除商品、庫存與數量上限檢查
+  - name: 優惠券 API 介面
+    description: 套用與移除優惠券、門檻與效期驗證、一車限用一張
+  - name: 結帳 API 介面
+    description: 送出訂單、價格與庫存重新核對、庫存扣減、重複送出防護、訂單完成頁查詢
+
+security:
+  - sessionCookie: []
+
+paths:
+  /cart:
+    get:
+      tags: [購物車 API 介面]
+      operationId: getCart
+      summary: 取得目前 session 的購物車
+      description: |
+        購物車不存在時回傳空購物車，不回 404。
+
+        **對應需求**：FR-001、FR-002
+      responses:
+        '200':
+          description: 目前購物車
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+
+  /cart/items:
+    post:
+      tags: [購物車 API 介面]
+      operationId: addCartItem
+      summary: 加入商品
+      description: |
+        同一商品已在購物車時合併數量，不新增第二列。
+
+        **業務規則**
+        - 合併後數量不得超過商品庫存與單品上限 99，超過時整筆拒絕，不自動調降
+        - 下架商品不得加入
+
+        **對應需求**：FR-003、FR-004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '200':
+          description: 加入後的購物車
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+        '404':
+          description: |
+            - `NOT_FOUND`：`productId` 對應的商品不存在
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: |
+            - `OUT_OF_STOCK`：合併後數量超過商品目前庫存
+            - `QUANTITY_LIMIT`：合併後數量超過單品上限 99
+            - `PRODUCT_UNAVAILABLE`：商品已下架
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: |
+            - `VALIDATION_FAILED`：缺少 `productId`，或 `quantity` 不是 1–99 的整數
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /cart/items/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/ItemId'
+    patch:
+      tags: [購物車 API 介面]
+      operationId: updateCartItemQuantity
+      summary: 修改數量
+      description: |
+        **業務規則**
+        - 數量為 0 視為格式錯誤，移除商品須呼叫 `removeCartItem`
+        - 修改後若低於已套用優惠券的門檻，優惠券自動失效並於回應的 `coupon.status` 標示，不回錯誤
+
+        **對應需求**：FR-004、FR-005
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuantityRequest'
+      responses:
+        '200':
+          description: 修改後的購物車
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+        '404':
+          description: |
+            - `NOT_FOUND`：`itemId` 不在此 session 的購物車中
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: |
+            - `OUT_OF_STOCK`：新數量超過商品目前庫存
+            - `PRODUCT_UNAVAILABLE`：商品已在加入後下架
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: |
+            - `VALIDATION_FAILED`：`quantity` 不是 1–99 的整數（含 0）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [購物車 API 介面]
+      operationId: removeCartItem
+      summary: 移除商品
+      description: |
+        移除不存在的項目視為成功，回傳目前購物車，因此沒有 404。
+
+        **對應需求**：FR-005
+      responses:
+        '200':
+          description: 移除後的購物車
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+
+  /cart/coupon:
+    put:
+      tags: [優惠券 API 介面]
+      operationId: applyCoupon
+      summary: 套用優惠券
+      description: |
+        已有優惠券時以新券取代舊券；新券失敗時保留舊券。
+
+        **業務規則**
+        - 一車限用一張
+        - 券碼不分大小寫，比對前去除前後空白
+        - 錯誤訊息不透露券的剩餘數量
+
+        **對應需求**：FR-006、FR-007
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyCouponRequest'
+      responses:
+        '200':
+          description: 套用後的購物車
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+        '422':
+          description: |
+            - `VALIDATION_FAILED`：`code` 為空或超過 32 字
+            - `COUPON_INVALID`：券碼不存在，或已被領用完畢
+            - `COUPON_EXPIRED`：券已超過使用期限
+            - `COUPON_BELOW_THRESHOLD`：購物車商品小計未達此券的使用門檻
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    delete:
+      tags: [優惠券 API 介面]
+      operationId: removeCoupon
+      summary: 移除優惠券
+      description: |
+        購物車沒有優惠券時視為成功。
+
+        **對應需求**：FR-006
+      responses:
+        '200':
+          description: 移除後的購物車
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+
+  /checkout:
+    post:
+      tags: [結帳 API 介面]
+      operationId: createOrder
+      summary: 送出訂單
+      description: |
+        **業務規則**
+        - 伺服器以當下價格與優惠重新計算金額，與 `expectedTotal` 不符時不建立訂單
+        - 相同 `Idempotency-Key` 重送時回傳第一次的結果，不重複建立訂單
+        - 扣減後庫存歸零的商品，推播 `cartItemSoldOut` 給其他購物車含該商品的 session（見 asyncapi.yaml）
+
+        **交易**：庫存檢查、庫存扣減、優惠券剩餘次數扣減、訂單建立與購物車清空在同一交易完成，任一失敗全部不生效
+
+        **對應需求**：FR-008、FR-009、FR-010、FR-012、NFR-002
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '201':
+          description: 訂單已建立；相同 `Idempotency-Key` 重送時也回 201 與同一筆訂單
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+        '409':
+          description: |
+            - `CART_EMPTY`：購物車沒有任何商品
+            - `OUT_OF_STOCK`：至少一項商品的數量超過目前庫存，`message` 列出售完的商品名稱
+            - `PRODUCT_UNAVAILABLE`：至少一項商品已下架
+            - `PRICE_CHANGED`：伺服器重新計算的總額與 `expectedTotal` 不符，前端應重新取得購物車並請使用者確認
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: |
+            - `VALIDATION_FAILED`：缺少 `Idempotency-Key`、收件人欄位缺漏，或手機不是 `09` 開頭的 10 碼
+            - `COUPON_EXPIRED`：已套用的優惠券在結帳當下過期
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /orders/{orderId}:
+    get:
+      tags: [結帳 API 介面]
+      operationId: getOrder
+      summary: 查詢訂單（結帳完成頁）
+      description: |
+        只能查詢同一 session 建立的訂單。
+
+        **對應需求**：FR-011
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: 訂單內容
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/SessionMissing'
+        '404':
+          description: |
+            - `NOT_FOUND`：訂單不存在，或不是此 session 建立；兩者回應相同，不回 403，避免透露訂單是否存在
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sid
+      description: 首次造訪時發給的匿名購物 session，不需登入。
+
+  parameters:
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 前端每次進入結帳頁產生一次，重送時沿用。
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    Money:
+      type: integer
+      description: 新台幣，以元為單位的整數
+      minimum: 0
+    CartItem:
+      type: object
+      required: [itemId, productId, name, unitPrice, quantity, subtotal]
+      properties:
+        itemId: { type: string }
+        productId: { type: string }
+        name: { type: string }
+        unitPrice: { $ref: '#/components/schemas/Money' }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        subtotal: { $ref: '#/components/schemas/Money' }
+    AppliedCoupon:
+      type: object
+      required: [code, status, discount]
+      properties:
+        code: { type: string }
+        status:
+          type: string
+          enum: [applied, below_threshold]
+          description: '`below_threshold` 表示修改數量後未達門檻，折扣暫不生效'
+        discount: { $ref: '#/components/schemas/Money' }
+    Cart:
+      type: object
+      required: [items, itemsTotal, discount, shippingFee, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartItem' }
+        coupon:
+          oneOf:
+            - $ref: '#/components/schemas/AppliedCoupon'
+            - type: 'null'
+        itemsTotal: { $ref: '#/components/schemas/Money' }
+        discount: { $ref: '#/components/schemas/Money' }
+        shippingFee: { $ref: '#/components/schemas/Money' }
+        total: { $ref: '#/components/schemas/Money' }
+    AddCartItemRequest:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId: { type: string }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+    UpdateQuantityRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+    ApplyCouponRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 32 }
+    CheckoutRequest:
+      type: object
+      required: [recipient, expectedTotal]
+      properties:
+        recipient:
+          type: object
+          required: [name, phone, address]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 50 }
+            phone: { type: string, pattern: '^09\d{8}$' }
+            address: { type: string, minLength: 1, maxLength: 200 }
+        expectedTotal:
+          $ref: '#/components/schemas/Money'
+          description: 前端顯示給使用者確認的總額
+    Order:
+      type: object
+      required: [orderId, status, items, total, createdAt]
+      properties:
+        orderId: { type: string }
+        status:
+          type: string
+          enum: [created]
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartItem' }
+        discount: { $ref: '#/components/schemas/Money' }
+        shippingFee: { $ref: '#/components/schemas/Money' }
+        total: { $ref: '#/components/schemas/Money' }
+        createdAt: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [code, message]
+      description: 所有錯誤回應的共通格式。各錯誤碼的發生情況列在各 API 的錯誤回應中。
+      properties:
+        code:
+          type: string
+          enum:
+            - SESSION_MISSING
+            - VALIDATION_FAILED
+            - NOT_FOUND
+            - CART_EMPTY
+            - OUT_OF_STOCK
+            - QUANTITY_LIMIT
+            - PRODUCT_UNAVAILABLE
+            - COUPON_INVALID
+            - COUPON_EXPIRED
+            - COUPON_BELOW_THRESHOLD
+            - PRICE_CHANGED
+        message:
+          type: string
+          description: 可直接顯示給使用者的文案，不含堆疊、SQL 或內部識別碼
+
+  responses:
+    SessionMissing:
+      description: |
+        - `SESSION_MISSING`：請求沒有帶 `sid` cookie，或 session 已失效；前端應重新整理頁面取得新 session
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

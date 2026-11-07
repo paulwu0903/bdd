@@ -1,0 +1,100 @@
+openapi: {{openapi version}}
+info:
+  title: {{api title}}
+  version: {{api version}}
+  description: |
+    `後端端點` 的 HTTP API 契約，由 api-plan 依 plan.md 的系統介面盤點產出。
+    每個 tag 對應 plan.md 的一個後端系統介面，名稱一字不差；即時事件見同目錄的 asyncapi.yaml。
+    每支 API 的錯誤回應各自列出可能的錯誤碼與發生情況，錯誤本體一律使用 `Error` 格式。
+servers:
+  - url: {{server url}}
+    description: {{server description}}
+
+tags:
+  - name: {{backend interface name}}
+    description: {{main interface}}
+
+security:
+  - {{security scheme name}}: []
+
+paths:
+  {{path}}:
+    parameters:
+      - $ref: '#/components/parameters/{{shared path parameter}}'
+    {{http method}}:
+      tags: [{{backend interface name}}]
+      operationId: {{operation id}}
+      summary: {{operation summary}}
+      description: |
+        {{operation behavior}}
+
+        **業務規則**
+        - {{business rule}}
+
+        **交易**：{{transaction boundary}}
+
+        **對應需求**：{{requirement ids}}
+      parameters:
+        - $ref: '#/components/parameters/{{operation parameter}}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/{{request schema}}'
+      responses:
+        '{{success status}}':
+          description: {{success description}}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/{{response schema}}'
+        '{{shared error status}}':
+          $ref: '#/components/responses/{{shared error response}}'
+        '{{error status}}':
+          description: |
+            - `{{error code}}`：{{error condition}}
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    {{security scheme name}}:
+      type: {{security type}}
+      in: {{security location}}
+      name: {{security key name}}
+      description: {{security description}}
+
+  parameters:
+    {{parameter component name}}:
+      name: {{parameter name}}
+      in: {{parameter location}}
+      required: {{parameter required}}
+      description: {{parameter description}}
+      schema:
+        {{parameter schema}}
+
+  schemas:
+    {{schema name}}:
+      {{schema definition}}
+    Error:
+      type: object
+      required: [code, message]
+      description: 所有錯誤回應的共通格式。各錯誤碼的發生情況列在各 API 的錯誤回應中。
+      properties:
+        code:
+          type: string
+          enum:
+            - {{error code}}
+        message:
+          type: string
+          description: 可直接顯示給使用者的文案，不含堆疊、SQL 或內部識別碼
+
+  responses:
+    {{shared error response}}:
+      description: |
+        - `{{error code}}`：{{error condition}}
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

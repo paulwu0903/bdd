@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>購物車｜BLOCK SHOP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="cart">
+<a class="skip" href="#main">跳到主要內容</a>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><span class="brand-icon" data-sprite="grass"></span><span>BLOCK SHOP</span></a>
+    <a class="bag" href="index.html" aria-label="購物車"><span data-sprite="chest"></span><span class="bag-count" id="cart-count" hidden>0</span></a>
+  </div>
+</header>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<main id="main" class="page">
+  <ol class="steps" aria-label="結帳進度">
+    <li aria-current="step">購物車</li>
+    <li>填寫資料</li>
+    <li>完成</li>
+  </ol>
+  <h1 class="page-title"><span class="en" aria-hidden="true">INVENTORY</span>購物車</h1>
+  <div id="view"></div>
+</main>
+<div class="sr-only" id="announcer" aria-live="polite"></div>
+<footer class="footer">
+  <div class="footer-inner">
+    <span class="footer-brand">BLOCK SHOP</span>
+    <span>方塊雜貨鋪 · 單筆滿 NT$1,500 免運</span>
+    <span>© 2026 BLOCK SHOP</span>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

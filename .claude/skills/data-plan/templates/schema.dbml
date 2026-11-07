@@ -1,0 +1,35 @@
+Project {{project name}} {
+  database_type: '{{database type}}'
+  Note: '''
+  `資料庫端點` 的資料表契約，由 data-plan 依 plan.md 的系統介面盤點與 openapi.yaml、asyncapi.yaml 的讀寫操作產出。
+  每個 Table 對應 plan.md 的一個資料表介面，表名一字不差；跨表的交易與一致性規則寫在 `資料庫共通介面` TableGroup 的 Note。
+  '''
+}
+
+TableGroup 資料庫共通介面 {
+  {{table name}}
+
+  Note: '''
+  **交易**
+  - `{{operation id}}`：{{transaction steps}}
+
+  **{{consistency rule category}}**
+  - {{consistency rule}}
+
+  **對應需求**：{{requirement ids}}
+  '''
+}
+
+Table {{table name}} {
+  {{column name}} {{column type}} [{{column settings}}]
+
+  indexes {
+    ({{index columns}}) [{{index settings}}]
+  }
+
+  Note: '''
+  `{{table name}} 資料表介面`：{{table responsibility}}
+
+  **對應需求**：{{requirement ids}}
+  '''
+}

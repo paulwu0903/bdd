@@ -1,0 +1,146 @@
+Project shopping_cart_checkout {
+  database_type: 'MySQL'
+  Note: '''
+  `資料庫端點` 的資料表契約，由 data-plan 依 plan.md 的系統介面盤點與 openapi.yaml、asyncapi.yaml 的讀寫操作產出。
+  每個 Table 對應 plan.md 的一個資料表介面，表名一字不差；跨表的交易與一致性規則寫在 `資料庫共通介面` TableGroup 的 Note。
+  '''
+}
+
+TableGroup 資料庫共通介面 {
+  carts
+  cart_items
+  coupons
+  orders
+  order_items
+  products
+  checkout_requests
+
+  Note: '''
+  **交易**
+  - `createOrder`：鎖定 `products` 相關列（SELECT ... FOR UPDATE）→ 檢查並扣減 `stock` → 有套用優惠券時鎖定 `coupons` 該列並將 `remaining` 減 1 → 寫入 `orders`、`order_items` → 刪除 `cart_items` → 寫入 `checkout_requests`，同一交易完成，任一失敗全部回滾
+  - `addCartItem`、`updateCartItemQuantity`：只讀 `products.stock` 做檢查，不鎖列；庫存以結帳交易的檢查為準
+
+  **冪等**
+  - `checkout_requests` 以 (`session_id`, `idempotency_key`) 唯一，重送時讀回第一次的 `order_id`
+
+  **對應需求**：FR-008、FR-009、FR-010、NFR-002
+  '''
+}
+
+Table products {
+  id varchar(26) [pk, note: 'ULID']
+  name varchar(100) [not null]
+  unit_price int [not null, note: '新台幣元，整數，>= 0']
+  stock int [not null, default: 0, note: '>= 0，只在 createOrder 交易內扣減']
+  is_listed boolean [not null, default: true, note: 'false 表示已下架，對應 PRODUCT_UNAVAILABLE']
+  updated_at datetime [not null]
+
+  Note: '''
+  `products 資料表介面`：價格、庫存、上下架狀態。
+  價格變更時由應用層推播 `cartItemPriceChanged`；資料表本身不保存價格歷史。
+
+  **對應需求**：FR-003、FR-012、FR-013
+  '''
+}
+
+Table carts {
+  id varchar(26) [pk]
+  session_id varchar(64) [not null, unique, note: '對應 cookie sid，一個 session 一台購物車']
+  coupon_id varchar(26) [null, ref: > coupons.id, note: '一車限用一張']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+
+  Note: '''
+  `carts 資料表介面`：session 與購物車的一對一關係、已套用的優惠券。
+
+  **對應需求**：FR-001、FR-002、FR-006
+  '''
+}
+
+Table cart_items {
+  id varchar(26) [pk]
+  cart_id varchar(26) [not null, ref: > carts.id]
+  product_id varchar(26) [not null, ref: > products.id]
+  quantity int [not null, note: '1–99']
+  created_at datetime [not null]
+
+  indexes {
+    (cart_id, product_id) [unique, note: '同一商品在同一購物車只有一列，加入時合併數量']
+  }
+
+  Note: '''
+  `cart_items 資料表介面`：商品與數量；單價不存在此表，每次讀取以 `products.unit_price` 計算。
+
+  **對應需求**：FR-003、FR-004、FR-005
+  '''
+}
+
+Table coupons {
+  id varchar(26) [pk]
+  code varchar(32) [not null, unique, note: '存大寫，比對前轉大寫並去除前後空白']
+  discount int [not null, note: '折抵金額，新台幣元']
+  min_items_total int [not null, note: '使用門檻：商品小計']
+  remaining int [not null, note: '剩餘可領用次數，0 對應 COUPON_INVALID']
+  expires_at datetime [not null, note: '過期對應 COUPON_EXPIRED']
+
+  Note: '''
+  `coupons 資料表介面`：券碼、折抵、門檻、剩餘次數與效期。
+
+  **對應需求**：FR-006、FR-007
+  '''
+}
+
+Table orders {
+  id varchar(26) [pk]
+  session_id varchar(64) [not null, note: 'getOrder 只回傳同 session 的訂單']
+  status varchar(16) [not null, note: '目前只有 created']
+  recipient_name varchar(50) [not null]
+  recipient_phone char(10) [not null]
+  recipient_address varchar(200) [not null]
+  discount int [not null]
+  shipping_fee int [not null]
+  total int [not null]
+  created_at datetime [not null]
+
+  indexes {
+    (session_id, created_at)
+  }
+
+  Note: '''
+  `orders 資料表介面`：收件人、金額快照與建立時間；金額為結帳當下計算結果，之後不隨商品價格變動。
+
+  **對應需求**：FR-008、FR-011
+  '''
+}
+
+Table order_items {
+  id varchar(26) [pk]
+  order_id varchar(26) [not null, ref: > orders.id]
+  product_id varchar(26) [not null, ref: > products.id]
+  name varchar(100) [not null, note: '結帳當下的商品名稱快照']
+  unit_price int [not null, note: '結帳當下的單價快照']
+  quantity int [not null]
+
+  Note: '''
+  `order_items 資料表介面`：商品名稱、單價與數量的快照。
+
+  **對應需求**：FR-008、FR-011
+  '''
+}
+
+Table checkout_requests {
+  session_id varchar(64) [not null]
+  idempotency_key char(36) [not null, note: 'Idempotency-Key header，UUID']
+  order_id varchar(26) [not null, ref: - orders.id]
+  created_at datetime [not null]
+
+  indexes {
+    (session_id, idempotency_key) [pk]
+  }
+
+  Note: '''
+  `checkout_requests 資料表介面`：同一 session 以同一冪等鍵重送時讀回第一次建立的訂單。
+
+  **對應需求**：FR-010
+  '''
+}

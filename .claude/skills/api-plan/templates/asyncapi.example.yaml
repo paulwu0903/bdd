@@ -1,0 +1,121 @@
+asyncapi: 3.1.0
+info:
+  title: 購物車與結帳即時事件
+  version: 0.1.0
+  description: |
+    `後端端點` 的即時事件契約，由 api-plan 依 plan.md 的系統介面盤點產出；HTTP API 見同目錄的 openapi.yaml。
+    本文件以伺服器的角度描述：`send` 表示伺服器推播給前端，`receive` 表示伺服器接收前端送來的訊息。
+  tags:
+    - name: 購物車通知 API 介面
+      description: 購物車頁面的連線、商品售完與價格變動推播、斷線重連後的狀態取回
+
+servers:
+  production:
+    host: shop.example.com
+    pathname: /ws
+    protocol: wss
+    description: 與 HTTP API 同網域，沿用同一個匿名購物 session
+    security:
+      - $ref: '#/components/securitySchemes/sessionCookie'
+
+channels:
+  cartNotifications:
+    address: /cart
+    title: 購物車通知
+    description: |
+      前端進入購物車頁或結帳頁時連線，離開頁面時關閉。
+      伺服器只推播與此 session 購物車內商品有關的事件。
+    messages:
+      cartItemSoldOut:
+        $ref: '#/components/messages/cartItemSoldOut'
+      cartItemPriceChanged:
+        $ref: '#/components/messages/cartItemPriceChanged'
+
+operations:
+  sendCartItemSoldOut:
+    action: send
+    channel:
+      $ref: '#/channels/cartNotifications'
+    messages:
+      - $ref: '#/channels/cartNotifications/messages/cartItemSoldOut'
+    summary: 推播購物車內商品已售完
+    description: |
+      **業務規則**
+      - 其他 session 結帳（`createOrder`）使商品庫存歸零時，推播給購物車含該商品的所有 session，送出結帳者本人不推播
+      - 推播後不自動移除購物車項目，由使用者決定移除；此時呼叫 `createOrder` 會回 409 `OUT_OF_STOCK`
+      - 推播失敗不影響結帳交易；前端重連後以 `getCart` 取回最新狀態，不補送漏掉的事件
+
+      **對應需求**：FR-012、NFR-003
+    tags:
+      - name: 購物車通知 API 介面
+
+  sendCartItemPriceChanged:
+    action: send
+    channel:
+      $ref: '#/channels/cartNotifications'
+    messages:
+      - $ref: '#/channels/cartNotifications/messages/cartItemPriceChanged'
+    summary: 推播購物車內商品價格變動
+    description: |
+      **業務規則**
+      - 商品價格調整後推播給購物車含該商品的所有 session
+      - 推播只供顯示提示，金額仍以 `getCart` 與 `createOrder` 的伺服器計算為準
+
+      **對應需求**：FR-013
+    tags:
+      - name: 購物車通知 API 介面
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: httpApiKey
+      in: cookie
+      name: sid
+      description: 與 openapi.yaml 相同的匿名購物 session。
+
+  messages:
+    cartItemSoldOut:
+      name: cartItemSoldOut
+      title: 商品已售完
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, itemId, productId, occurredAt]
+        properties:
+          type:
+            type: string
+            const: cartItemSoldOut
+          itemId:
+            type: string
+            description: 對應 openapi.yaml `CartItem.itemId`
+          productId:
+            type: string
+          occurredAt:
+            type: string
+            format: date-time
+    cartItemPriceChanged:
+      name: cartItemPriceChanged
+      title: 商品價格變動
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, itemId, productId, oldUnitPrice, newUnitPrice, occurredAt]
+        properties:
+          type:
+            type: string
+            const: cartItemPriceChanged
+          itemId:
+            type: string
+          productId:
+            type: string
+          oldUnitPrice:
+            type: integer
+            minimum: 0
+            description: 新台幣，以元為單位的整數
+          newUnitPrice:
+            type: integer
+            minimum: 0
+            description: 新台幣，以元為單位的整數
+          occurredAt:
+            type: string
+            format: date-time

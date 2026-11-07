@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{page title}}｜{{product name}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="{{google fonts url}}">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="{{page id}}">
+<a class="skip" href="#main">跳到主要內容</a>
+<header class="topbar">
+  {{header content}}
+</header>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<main id="main" class="page">
+  {{page content}}
+  <div id="view"></div>
+</main>
+<div class="sr-only" id="announcer" aria-live="polite"></div>
+<footer class="footer">
+  {{footer content}}
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

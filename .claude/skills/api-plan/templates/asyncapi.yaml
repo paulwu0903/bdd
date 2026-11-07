@@ -1,0 +1,68 @@
+asyncapi: {{asyncapi version}}
+info:
+  title: {{api title}}
+  version: {{api version}}
+  description: |
+    `後端端點` 的即時事件契約，由 api-plan 依 plan.md 的系統介面盤點產出；HTTP API 見同目錄的 openapi.yaml。
+    本文件以伺服器的角度描述：`send` 表示伺服器推播給前端，`receive` 表示伺服器接收前端送來的訊息。
+  tags:
+    - name: {{backend interface name}}
+      description: {{main interface}}
+
+servers:
+  {{server name}}:
+    host: {{server host}}
+    pathname: {{server pathname}}
+    protocol: {{server protocol}}
+    description: {{server description}}
+    security:
+      - $ref: '#/components/securitySchemes/{{security scheme name}}'
+
+channels:
+  {{channel name}}:
+    address: {{channel address}}
+    title: {{channel title}}
+    description: |
+      {{channel behavior}}
+    messages:
+      {{message name}}:
+        $ref: '#/components/messages/{{message name}}'
+
+operations:
+  {{operation id}}:
+    action: {{send or receive}}
+    channel:
+      $ref: '#/channels/{{channel name}}'
+    messages:
+      - $ref: '#/channels/{{channel name}}/messages/{{message name}}'
+    summary: {{operation summary}}
+    description: |
+      **業務規則**
+      - {{business rule}}
+
+      **對應需求**：{{requirement ids}}
+    tags:
+      - name: {{backend interface name}}
+
+components:
+  securitySchemes:
+    {{security scheme name}}:
+      type: {{security type}}
+      in: {{security location}}
+      name: {{security key name}}
+      description: {{security description}}
+
+  messages:
+    {{message name}}:
+      name: {{message name}}
+      title: {{message title}}
+      contentType: application/json
+      payload:
+        type: object
+        required: [{{required properties}}]
+        properties:
+          type:
+            type: string
+            const: {{message name}}
+          {{property name}}:
+            {{property schema}}
