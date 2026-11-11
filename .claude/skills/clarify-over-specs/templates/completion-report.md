@@ -3,6 +3,8 @@
 - 已問且已回答：{{answered count}} / 5
 - 更新的 spec：`{{spec path}}`
 - spec_lint：{{lint result}}
+- 既有需求異動：{{change rows summary}}
+- requirements 同步：ADD {{add count}}、MODIFY {{modify count}}、DELETE {{delete count}}
 
 ## 問答與回寫
 
@@ -24,6 +26,7 @@
 | Terminology & Consistency | {{status}} | {{note}} |
 | Completion Signals | {{status}} | {{note}} |
 | Misc / Placeholders | {{status}} | {{note}} |
+| Current Requirements Consistency | {{status}} | {{note}} |
 
 ## 建議下一步
 

@@ -1,5 +1,5 @@
 # Rule 1 - 每條修訂過的條目都要比對 acceptance [MUST]
-- 修改 spec.md 後，把這次修訂過的每一條 FR、NFR、Edge Case 與 Assumption，逐一和 spec.md 同目錄 `features/acceptance/` 下的所有 feature 檔比對。
+- /clarify-over-specs 回寫 spec.md 後，把這次修訂過的每一條 FR、NFR、Edge Case、Assumption 與既有需求異動的列，逐一和 spec.md 同目錄 `features/acceptance/` 下的所有 feature 檔比對。
 - 比對的是修訂後的條目內容，不是修訂前的版本。
 - `features/acceptance/` 不存在時，回報「尚無 acceptance feature 檔，未比對」，不略過不說。
 

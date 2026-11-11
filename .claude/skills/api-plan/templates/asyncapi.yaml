@@ -3,8 +3,11 @@ info:
   title: {{api title}}
   version: {{api version}}
   description: |
-    `後端端點` 的即時事件契約，由 api-plan 依 plan.md 的系統介面盤點產出；HTTP API 見同目錄的 openapi.yaml。
+    `後端端點` 的即時事件契約，屬於 Truth：描述系統「現在」的完整即時事件，全專案只有這一份（`specs/truth/contracts/asyncapi.yaml`）。
+    由 api-plan 依各 plan 的 plan.md 系統介面盤點，直接在本檔新增、修改或刪除；每次異動逐項記在該 plan 的 `truth-delta.md`，本檔不寫沿革。HTTP API 見同目錄的 openapi.yaml。
     本文件以伺服器的角度描述：`send` 表示伺服器推播給前端，`receive` 表示伺服器接收前端送來的訊息。
+
+    **編號**：需求與決策編號一律帶 plan 前綴。`{{plan number}}/FR-001` 指 `specs/plans/{{plan directory name}}/spec.md` 的 FR-001，`research {{plan number}}/R1` 指同一個 plan 的 research.md 的 R1。
   tags:
     - name: {{backend interface name}}
       description: {{main interface}}

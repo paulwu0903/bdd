@@ -1,8 +1,12 @@
 Project shopping_cart_checkout {
   database_type: 'MySQL'
   Note: '''
-  `資料庫端點` 的資料表契約，由 data-plan 依 plan.md 的系統介面盤點與 openapi.yaml、asyncapi.yaml 的讀寫操作產出。
-  每個 Table 對應 plan.md 的一個資料表介面，表名一字不差；跨表的交易與一致性規則寫在 `資料庫共通介面` TableGroup 的 Note。
+  `資料庫端點` 的資料表契約，屬於 Truth：描述系統「現在」的完整資料表，全專案只有這一份（`specs/truth/data/schema.dbml`），可以單獨閱讀，也能直接以 `dbml2sql` 產生完整 DDL。
+  由 data-plan 依各 plan 的 plan.md 系統介面盤點與 `specs/truth/contracts/` 的讀寫操作，直接在本檔新增、修改或刪除；每次異動逐項記在該 plan 的 `truth-delta.md`，本檔不寫沿革。
+  每個 Table 對應一個資料表介面，表名一字不差；跨表的交易與一致性規則寫在 `資料庫共通介面` TableGroup 的 Note。
+
+  - 編號：需求與決策編號一律帶 plan 前綴。`001/FR-001` 指 `specs/plans/001-shopping-cart/spec.md` 的 FR-001，`research 001/R1` 指同一個 plan 的 research.md 的 R1。
+  - 遷移：實際 DDL 由 `backend/db/migrations/` 依檔名順序套用的遷移檔組成，內容以本檔為準。
   '''
 }
 
@@ -23,7 +27,7 @@ TableGroup 資料庫共通介面 {
   **冪等**
   - `checkout_requests` 以 (`session_id`, `idempotency_key`) 唯一，重送時讀回第一次的 `order_id`
 
-  **對應需求**：FR-008、FR-009、FR-010、NFR-002
+  **對應需求**：001/FR-008、001/FR-009、001/FR-010、001/NFR-002
   '''
 }
 
@@ -39,7 +43,7 @@ Table products {
   `products 資料表介面`：價格、庫存、上下架狀態。
   價格變更時由應用層推播 `cartItemPriceChanged`；資料表本身不保存價格歷史。
 
-  **對應需求**：FR-003、FR-012、FR-013
+  **對應需求**：001/FR-003、001/FR-012、001/FR-013
   '''
 }
 
@@ -53,7 +57,7 @@ Table carts {
   Note: '''
   `carts 資料表介面`：session 與購物車的一對一關係、已套用的優惠券。
 
-  **對應需求**：FR-001、FR-002、FR-006
+  **對應需求**：001/FR-001、001/FR-002、001/FR-006
   '''
 }
 
@@ -71,7 +75,7 @@ Table cart_items {
   Note: '''
   `cart_items 資料表介面`：商品與數量；單價不存在此表，每次讀取以 `products.unit_price` 計算。
 
-  **對應需求**：FR-003、FR-004、FR-005
+  **對應需求**：001/FR-003、001/FR-004、001/FR-005
   '''
 }
 
@@ -86,7 +90,7 @@ Table coupons {
   Note: '''
   `coupons 資料表介面`：券碼、折抵、門檻、剩餘次數與效期。
 
-  **對應需求**：FR-006、FR-007
+  **對應需求**：001/FR-006、001/FR-007
   '''
 }
 
@@ -109,7 +113,7 @@ Table orders {
   Note: '''
   `orders 資料表介面`：收件人、金額快照與建立時間；金額為結帳當下計算結果，之後不隨商品價格變動。
 
-  **對應需求**：FR-008、FR-011
+  **對應需求**：001/FR-008、001/FR-011
   '''
 }
 
@@ -124,7 +128,7 @@ Table order_items {
   Note: '''
   `order_items 資料表介面`：商品名稱、單價與數量的快照。
 
-  **對應需求**：FR-008、FR-011
+  **對應需求**：001/FR-008、001/FR-011
   '''
 }
 
@@ -141,6 +145,6 @@ Table checkout_requests {
   Note: '''
   `checkout_requests 資料表介面`：同一 session 以同一冪等鍵重送時讀回第一次建立的訂單。
 
-  **對應需求**：FR-010
+  **對應需求**：001/FR-010
   '''
 }

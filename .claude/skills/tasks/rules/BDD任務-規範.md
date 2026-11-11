@@ -104,7 +104,7 @@
 ```
 
 # Rule 6 - Acceptance Gates 只放驗證任務 [MUST]
-- Acceptance Gates 不放 `/bdd` 任務，只放 `驗證` 任務：每個端點一個「以隨機順序執行 `specs/truth/features/<端點>` 的全套 feature 並確認全綠」，最後一個「以 /dsl-refine 的 check_trace.py 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋」。
+- Acceptance Gates 不放 `/bdd` 任務，只放 `驗證` 任務：每個端點一個「以隨機順序執行 `specs/truth/features/<端點>` 的全套 feature 並確認全綠」，最後一個「以 /dsl-refine 的 `check_trace.py --plan <plan 目錄>` 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋」。
 - Acceptance Gates 的任務不標 [US]，也不放 refactor。
 
 ## Good Example
@@ -113,7 +113,7 @@
 ```
 - [ ] T040 `驗證` 以隨機順序執行 `specs/truth/features/backend` 的全套 feature 並確認全綠
 - [ ] T041 `驗證` 以隨機順序執行 `specs/truth/features/frontend` 的全套 feature 並確認全綠
-- [ ] T042 `驗證` 以 /dsl-refine 的 check_trace.py 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋
+- [ ] T042 `驗證` 以 /dsl-refine 的 `check_trace.py --plan <plan 目錄>` 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋
 ```
 
 ## Bad Example

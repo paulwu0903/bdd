@@ -222,7 +222,7 @@
   - Why: 各 Phase 的 Checkpoint 容許尚未處理的異動暫時失敗，只有最後整套打亂順序重跑，才能證明既有功能的情境沒有被本次的對齊與移除連帶破壞。
 - [ ] T023 `驗證` 以隨機順序執行 `specs/truth/features/frontend` 的全套 feature 並確認全綠
   - Why: 前端情境共用同一個後端與資料庫，後端移除取消操作與 NFR 重構的調整可能破壞既有畫面行為，最後必須整套重跑一次。
-- [ ] T024 `驗證` 以 /dsl-refine 的 check_trace.py 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋
+- [ ] T024 `驗證` 以 /dsl-refine 的 `check_trace.py --plan specs/plans/003-chat-reactions` 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋
   - Must Read:
     - `features/acceptance/滿額贈品.feature`
   - Why: acceptance 本身不會被執行，只有追溯檢查能證明本 plan 的每個業務檢查點都落到了已綠的端點 Example 上；其他 plan 的檢查點不在本次範圍。

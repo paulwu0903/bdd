@@ -12,7 +12,7 @@ tag v1.2.2, licensed under the MIT License. The following upstream files were co
 
 ## Scope of the derivation
 
-Only the pipeline stage position and the `specs/<NNN>-<name>/` feature-directory
+Only the pipeline stage position and the numbered feature-directory (now `specs/plans/<NNN>-<name>/`)
 convention were adapted from spec-kit's `/speckit.plan` stage; no text was copied.
 
 ## MIT License (github/spec-kit)

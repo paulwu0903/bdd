@@ -5,7 +5,7 @@
 """Compare a plan's truth-delta.md with the semantic-unit changes of specs/truth/ between its Base commit and the working tree.
 
 Usage:
-    uv run scripts/check_delta.py --plan <specs/plans/NNN-name> [--section requirements|techstack|contracts|data|features]
+    uv run scripts/check_delta.py --plan <specs/plans/NNN-name> [--section requirements|techstack|contracts|data|features ...]
 """
 import argparse
 import difflib
@@ -67,7 +67,7 @@ SECTIONS = {
     "features": ("## /dsl-refine — truth/features/", "specs/truth/features"),
 }
 LOCATION_FORMAT = {
-    "requirements": re.compile(r"^\d{3}/(?:N?FR|SC)-\d{3}$"),
+    "requirements": re.compile(r"^\d{3}/(?:N?FR|SC)-\d{3}[a-z]?$"),
     "techstack": re.compile(r"^.+ / .+$"),
     "contracts": re.compile(r"^\S+\.(?:ya?ml|json)(?: › .+)?$"),
     "data": re.compile(r"^\S+\.dbml(?: › .+)?$"),
@@ -118,7 +118,7 @@ class Repo:
 
 def requirement_units(files: dict[str, str]) -> Units:
     units: Units = {}
-    item = re.compile(r"^\s*(?:[-*]\s+\*\*|\|\s*`?)(\d{3}/(?:N?FR|SC)-\d{3})")
+    item = re.compile(r"^\s*(?:[-*]\s+\*\*|\|\s*`?)(\d{3}/(?:N?FR|SC)-\d{3}[a-z]?)")
     for text in files.values():
         current = None
         for line in text.split("\n"):
@@ -404,7 +404,7 @@ def excerpt(action: str, old: str, new: str) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Compare a plan's truth-delta.md with the semantic-unit changes of specs/truth/ between its Base commit and the working tree.")
     parser.add_argument("--plan", required=True, help="Plan package directory, e.g. specs/plans/003-pvp-spectate")
-    parser.add_argument("--section", choices=list(SECTIONS), help="Check only this section (default: all five)")
+    parser.add_argument("--section", choices=list(SECTIONS), action="append", help="Check only this section; repeat to check several (default: all five)")
     args = parser.parse_args()
 
     plan = Path(args.plan).resolve()
@@ -426,7 +426,7 @@ def main() -> int:
 
     problems: list[str] = []
     counts = {}
-    for section in [args.section] if args.section else list(SECTIONS):
+    for section in args.section or list(SECTIONS):
         heading = SECTIONS[section][0]
         rows = section_rows(text, heading)
         if rows is None:

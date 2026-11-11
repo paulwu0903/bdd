@@ -1,8 +1,12 @@
 Project {{project name}} {
   database_type: '{{database type}}'
   Note: '''
-  `資料庫端點` 的資料表契約，由 data-plan 依 plan.md 的系統介面盤點與 openapi.yaml、asyncapi.yaml 的讀寫操作產出。
-  每個 Table 對應 plan.md 的一個資料表介面，表名一字不差；跨表的交易與一致性規則寫在 `資料庫共通介面` TableGroup 的 Note。
+  `資料庫端點` 的資料表契約，屬於 Truth：描述系統「現在」的完整資料表，全專案只有這一份（`specs/truth/data/schema.dbml`），可以單獨閱讀，也能直接以 `dbml2sql` 產生完整 DDL。
+  由 data-plan 依各 plan 的 plan.md 系統介面盤點與 `specs/truth/contracts/` 的讀寫操作，直接在本檔新增、修改或刪除；每次異動逐項記在該 plan 的 `truth-delta.md`，本檔不寫沿革。
+  每個 Table 對應一個資料表介面，表名一字不差；跨表的交易與一致性規則寫在 `資料庫共通介面` TableGroup 的 Note。
+
+  - 編號：需求與決策編號一律帶 plan 前綴。`{{plan number}}/FR-001` 指 `specs/plans/{{plan directory name}}/spec.md` 的 FR-001，`research {{plan number}}/R1` 指同一個 plan 的 research.md 的 R1。
+  - 遷移：實際 DDL 由 `{{migration directory}}` 依檔名順序套用的遷移檔組成，內容以本檔為準。
   '''
 }
 

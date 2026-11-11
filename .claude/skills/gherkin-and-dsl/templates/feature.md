@@ -1,7 +1,7 @@
 Feature: {{功能名稱}}
   {{一句功能描述}}
 
-  # 來源：{{acceptance 目錄路徑}} 與 {{spec.md 路徑}}；句型定義見同目錄 dsl.md。
+  # 來源：{{plan 目錄清單，以「、」分隔（specs/plans/<NNN>-<名稱>/）}}；句型定義見 specs/truth/features/{{端點}}/*/dsl.md。
 
   Background:
     Given {{所有 Example 共用的步驟}}
@@ -11,7 +11,7 @@ Feature: {{功能名稱}}
 
   Rule: {{一句可驗證的規則陳述}}
 
-    @ac:{{acceptance 主題}}:{{Journey 序}}-{{檢查點序}}
+    @ac:{{plan 編號}}/{{acceptance 主題}}:{{Journey 序}}-{{檢查點序}}
     Example: {{資料情境名稱}}
       Given {{前置狀態步驟}}
       When {{受測操作步驟}}
@@ -20,7 +20,7 @@ Feature: {{功能名稱}}
 
   Rule: {{一句可驗證的規則陳述}}
 
-    @ac:{{acceptance 主題}}:{{Journey 序}}-{{檢查點序}}
+    @ac:{{plan 編號}}/{{acceptance 主題}}:{{Journey 序}}-{{檢查點序}}
     Scenario Outline: {{含 <參數名稱> 的資料情境名稱}}
       Given {{前置狀態步驟}}
       When {{含 <參數名稱> 的受測操作步驟}}
@@ -32,7 +32,7 @@ Feature: {{功能名稱}}
 
   Rule: {{一句可驗證的規則陳述}}
 
-    @ac:{{acceptance 主題}}:{{Journey 序}}-{{檢查點序}} @journey
+    @ac:{{plan 編號}}/{{acceptance 主題}}:{{Journey 序}}-{{檢查點序}} @journey
     Example: {{端點 journey 的資料情境名稱}}
       Given {{前置狀態步驟}}
       When {{第一段受測操作步驟}}

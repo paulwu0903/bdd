@@ -7,13 +7,14 @@
     - `{{frontend interface name}}`
 - 不在範疇：{{out of scope}}
 - 上游契約：
-    - HTTP API：`analysis/openapi.yaml`
-    - 即時事件：`analysis/asyncapi.yaml`
+    - HTTP API：`specs/truth/contracts/openapi.yaml`
+    - 即時事件：`specs/truth/contracts/asyncapi.yaml`
+- 不影響畫面的契約異動：`{{operation id or message name}}`（{{reason}}）
 - 雛形入口：`prototype/index.html`
 
 ## 視覺風格
 
-- 風格：{{visual style}}
+- 風格：{{visual style or 沿用現行樣式 token 檔}}
 - 色彩：
 
 | Token | 色碼 | 用途 |
@@ -23,6 +24,12 @@
 - 字型：{{fonts}}
 - 元件：
     - {{component style}}
+
+## 本次異動的既有畫面
+
+| 畫面 | 對應介面 | 程式位置 | 現況 | 本次 | 依據 |
+|---|---|---|---|---|---|
+| {{screen name}} | `{{frontend interface name}}` | `{{current code file}}` | {{current behavior}} | {{changed behavior or 移除}} | {{basis}} |
 
 ## {{common interface name}}
 

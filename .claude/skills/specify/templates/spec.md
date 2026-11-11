@@ -66,6 +66,12 @@
 
 - **SC-{{criterion id}}**: {{measurable outcome}}
 
+## 既有需求異動
+
+| # | 動作 | 既有編號 | 新內容 | 理由 | 確認 |
+|---|---|---|---|---|---|
+| {{異動編號}} | {{MODIFY 或 DELETE}} | `{{plan 編號}}/{{既有需求編號}}` | {{修改後的完整條文，DELETE 寫 —}} | {{異動理由}} | {{使用者於 YYYY-MM-DD 確認，或低風險}} |
+
 ## Assumptions
 
 - **{{assumption}}**（{{decision source}}）：{{assumption rationale}}

@@ -1,4 +1,4 @@
-# 前端畫面規格：購物車與結帳
+# 前端畫面規格：結帳與優惠券
 
 ## 範疇
 
@@ -8,15 +8,16 @@
     - `購物車頁面介面`
     - `結帳頁面介面`
     - `訂單完成頁面介面`
-- 不在範疇：商品頁的「加入購物車」（`addCartItem`）由商品頁功能負責，本次只在購物車頁調整既有商品
+- 不在範疇：商品頁的「加入購物車」（`addCartItem`）由商品頁功能負責，本次不變更
 - 上游契約：
-    - HTTP API：`analysis/openapi.yaml`
-    - 即時事件：`analysis/asyncapi.yaml`
+    - HTTP API：`specs/truth/contracts/openapi.yaml`
+    - 即時事件：`specs/truth/contracts/asyncapi.yaml`
+- 不影響畫面的契約異動：`addCartItem`（回應多帶 `coupon`，只由商品頁呼叫，商品頁不顯示折扣，呈現不變）
 - 雛形入口：`prototype/index.html`
 
 ## 視覺風格
 
-- 風格：方塊像素，畫面像遊戲裡的物品欄與工作台
+- 風格：沿用現行 `frontend/src/styles/tokens.css` 的方塊像素風格，畫面像遊戲裡的物品欄與工作台（spec 沒有要求改變風格，未詢問使用者）
 - 色彩：
 
 | Token | 色碼 | 用途 |
@@ -35,6 +36,15 @@
     - 按鈕有立體陰影（右下深、左上淺），按下時陰影反轉
     - 商品圖以 16×16 像素圖示放大呈現
 
+## 本次異動的既有畫面
+
+| 畫面 | 對應介面 | 程式位置 | 現況 | 本次 | 依據 |
+|---|---|---|---|---|---|
+| 購物車頁 | `購物車頁面介面` | `frontend/src/pages/CartPage.tsx` | 右欄只有商品小計與「繼續購物」 | 右欄改為訂單摘要（商品小計、折扣、運費、應付總額）與「前往結帳」 | FR-008 |
+| 購物車頁 | `購物車頁面介面` | `frontend/src/pages/CartPage.tsx`、`frontend/src/components/CouponField.tsx`（新增） | 沒有優惠碼 | 商品列表下方加入優惠碼輸入、套用與移除 | FR-006、FR-007 |
+| 購物車頁 | `購物車頁面介面` | `frontend/src/components/CartItemRow.tsx` | 數量加減只更新該列小計 | 數量加減後依回應的 `coupon.status` 更新折扣列，未達門檻時顯示「未達門檻」 | FR-007 |
+| 購物車頁 | `購物車頁面介面` | `frontend/src/pages/CartPage.tsx` | 進入頁面時呼叫一次 `getCart`，之後不更新 | 進入頁面時連線購物車通知，商品售完或改價時即時標記 | FR-012、FR-013 |
+
 ## 前端共通介面
 
 - 匿名 session：首次造訪由後端發 cookie `sid`，前端不自行保存識別碼
@@ -49,8 +59,8 @@
 ### 購物車頁
 
 - 對應介面：`購物車頁面介面`
-- 雛形：`prototype/index.html`
-- 對應需求：FR-002、FR-004、FR-005、FR-006、FR-007、FR-012、FR-013
+- 雛形：`prototype/index.html`（依現行 `CartPage.tsx` 的版面與 `tokens.css` 重做，再加上本次的修改）
+- 對應需求：FR-006、FR-007、FR-008、FR-012、FR-013；既有行為依 `001/FR-002`、`001/FR-004`、`001/FR-005`
 - 四態：載入（`?state=loading`）、空（`?state=empty`，顯示空購物車與繼續購物）、錯誤（`?state=error`，顯示連線中斷與重試）、正常
 - 版面：
     - 頁首：店名、購物車件數

@@ -5,13 +5,13 @@
 """Check a features/acceptance directory of acceptance Gherkin files against the spec-by-example standard.
 
 Usage:
-    uv run scripts/check_acceptance.py --dir <specs/<NNN>-<name>/features/acceptance> \
-        [--min-files 3] [--max-files 8]
+    uv run scripts/check_acceptance.py --dir <specs/plans/<NNN>-<name>/features/acceptance> \
+        [--min-files 1] [--max-files 8]
 
 Checks (one line per violation on stdout, exit 1 when any, exit 2 on bad arguments):
   A1 the directory path ends with features/acceptance
   A2 the directory holds no dsl.md and no frontend / backend subdirectories
-  A3 the number of .feature files is within --min-files .. --max-files (default 3-8; 5-8 recommended)
+  A3 the number of .feature files is within --min-files .. --max-files (default 1-8; 5-8 recommended only for a first plan of a new product)
   A4 each file: `Feature: <name>` followed by a description line, at most one Background (optional;
      extracted only for steps shared by journeys, so a Background needs at least 2 Examples) before
      the first Rule, at least one Rule, 1-3 Examples, no bare Scenario, every Example under a Rule
@@ -19,9 +19,9 @@ Checks (one line per violation on stdout, exit 1 when any, exit 2 on bad argumen
      end with a quote mark (quoted digit strings such as codes and IDs are allowed in steps)
   A6 clarification tags: every open tag is `# [NEEDS CLARIFICATION: <問題>？暫以「<暫定答案>」撰寫]`
      and every resolved tag is `# [CLARIFIED: <問題>？→「<定案答案>」]` (kept after /clarify as the
-     decision record; both kinds count toward the 3-10 total and follow the same placement rule)
+     decision record; both kinds count toward the 0-10 total and follow the same placement rule)
      (本範例暫以 accepted), sits directly above a Background step, an Example line, or a Given /
-     When / Then step inside an Example (And / But resolve to the previous keyword), and the whole set has 3-10 tags
+     When / Then step inside an Example (And / But resolve to the previous keyword), and the whole set has at most 10 tags
   A7 within an Example, every step containing 系統拒絕 is followed, before the next When or the
      end of the Example, by at least one Then / And step containing 仍
 """
@@ -78,7 +78,7 @@ DONE = re.compile(r"^# \[CLARIFIED: .+？→「.+」\]$")
 REJECT_MARK = "系統拒絕"
 UNCHANGED_MARK = "仍"
 SIDE_DIRS = {"frontend", "backend", "前端", "後端"}
-MIN_TAGS, MAX_TAGS = 3, 10
+MIN_TAGS, MAX_TAGS = 0, 10
 MAX_EXAMPLES = 3
 
 
@@ -218,13 +218,13 @@ def check_file(path: Path, rel: str, errors: list[str]) -> tuple[int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check a features/acceptance directory of acceptance Gherkin files.")
-    parser.add_argument("--dir", required=True, help="Path to specs/<NNN>-<name>/features/acceptance")
-    parser.add_argument("--min-files", type=int, default=3, help="Minimum number of .feature files (default 3; 5-8 recommended, fewer only for a small spec)")
+    parser.add_argument("--dir", required=True, help="Path to specs/plans/<NNN>-<name>/features/acceptance")
+    parser.add_argument("--min-files", type=int, default=1, help="Minimum number of .feature files (default 1; 5-8 recommended only for a first plan of a new product)")
     parser.add_argument("--max-files", type=int, default=8, help="Maximum number of .feature files (default 8)")
     args = parser.parse_args()
     root = Path(args.dir)
     if not root.is_dir():
-        sys.stderr.write(f"error: '{root}' is not a directory; pass --dir <specs/<NNN>-<name>/features/acceptance>\n")
+        sys.stderr.write(f"error: '{root}' is not a directory; pass --dir <specs/plans/<NNN>-<name>/features/acceptance>\n")
         return 2
     if args.min_files < 1 or args.min_files > args.max_files:
         sys.stderr.write("error: --min-files must be >= 1 and <= --max-files\n")
@@ -233,7 +233,7 @@ def main() -> int:
     errors: list[str] = []
     resolved = root.resolve()
     if resolved.parts[-2:] != ("features", "acceptance"):
-        errors.append(f"{root}: [A1] directory must be specs/<NNN>-<name>/features/acceptance")
+        errors.append(f"{root}: [A1] directory must be specs/plans/<NNN>-<name>/features/acceptance")
     for p in sorted(resolved.rglob("*")):
         if p.is_file() and p.name.lower() == "dsl.md":
             errors.append(f"{p.relative_to(resolved)}: [A2] acceptance step produces no dsl.md; remove it")

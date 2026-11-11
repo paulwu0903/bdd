@@ -1,6 +1,8 @@
-# 後端 DSL
+# 後端 DSL：平臺共用
 
-這份 DSL 整理 `Given`、`When`、`Then` 句型，目標是讓 AI 看著句型本身與各欄位說明，就能高可靠度地推出 step definition 應該怎麼寫。
+這份 DSL 整理 `平臺共用` step 模組（`backend/tests/bdd/modules/平臺共用/`）註冊的 `Given`、`When`、`Then` 句型，目標是讓 AI 看著句型本身與各欄位說明，就能高可靠度地推出 step definition 應該怎麼寫。
+
+同一端點內每個句型只定義一次，定義在註冊它的 step 模組的 dsl.md；feature 檔可以使用 `specs/truth/features/backend/*/dsl.md` 任何一份的句型。
 
 ## Given 句型
 

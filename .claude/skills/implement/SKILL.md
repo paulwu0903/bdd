@@ -14,7 +14,7 @@ metadata:
 ## Phase 1 -- 確認輸入、環境與基準
 1. READ 讀取使用者指定的 `specs/plans/<NNN>-<專案名>/tasks.md` 的檔首與 Phase 標題，以及使用者補充的程式碼根目錄與任務範圍；只有在 tasks.md 不存在時才交給 tasks skill 產出再繼續，已存在則直接使用；程式碼根目錄未指定時以 repository root 為準。
 2. READ 讀取 `specs/truth/techstack.md` 的執行環境，確認本機具備所列的執行時版本與資料庫；缺少時自行安裝、啟動並建立測試資料庫，仍做不到則改採 research.md 已評估的替代方案並記入當責紀錄。
-3. DELEGATE 對 `specs/truth/features/` 下的每個端點目錄，以 uv run 執行 gherkin-and-dsl skill 的 `verify_features.py`（位於 `.claude/skills/gherkin-and-dsl` 的 scripts 目錄）`--feature-dir <端點目錄> --dsl-root <端點目錄>`；任一端有違規時不寫任何程式，向使用者列出違規，請其交由 /dsl-refine 修正後重跑。
+3. DELEGATE 對 `specs/truth/features/` 下的每個端點目錄，以 uv run 執行 gherkin-and-dsl skill 的 `verify_features.py`（位於 `.claude/skills/gherkin-and-dsl` 的 scripts 目錄）`--feature-dir <端點目錄> --dsl-root <端點目錄> --only-delta <plan 目錄>/truth-delta.md`，只對本 plan 在 truth-delta features 段改過的 feature 檔回報逐檔違規，跨檔檢查仍涵蓋整個端點；任一端有違規時不寫任何程式，向使用者列出違規，請其交由 /dsl-refine 修正後重跑。
 4. DELEGATE 以各端點的測試一鍵指令執行整個 truth 套件並輸出機器可讀報告，再以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/map_baseline.py --plan <plan 目錄> --report <報告> [--report ...]`，取得每一個失敗對應到的 truth-delta 列，以及對應不到的失敗。
 5. THINK 對應不到的失敗先重跑一次排除不穩定；屬於環境問題的自行修復後回到第 4 步；仍有對應不到的失敗時停止，不寫任何程式，向使用者列出失敗的 Example、使用的句型與最可能的來源，請其交由 /dsl-refine 補記或確認為既有問題；使用者確認為既有問題的記為「已知失敗」，與基準一併寫入執行紀錄。
 
@@ -33,7 +33,7 @@ metadata:
 5. READ 確認本批已依序走完 Phase 2 第 1 步到本步的每一步，有遺漏即補做該步；該批到達 Phase 末尾時讀取該 Phase 的 Checkpoint 與 Independent Test，逐項實際執行確認，全部通過才回到 Phase 2 第 1 步；未通過視同該 Phase 最後一個序列任務失敗，依第 1 步處理；未到 Phase 末尾則直接回到 Phase 2 第 1 步。
 
 ## Phase 5 -- 完成回報
-1. READ 讀取 tasks.md 確認全部任務已為 [X]，執行整個 truth 套件，以 uv run 執行 dsl-refine skill 的 `check_trace.py`（位於 `.claude/skills/dsl-refine` 的 scripts 目錄）檢查本 plan 前綴的追溯，並交給 truth-delta 以「檢查」動作確認紀錄與實際異動一致；向使用者回報完成的 Phase 與任務數、上述驗證結果、MODIFY 與 DELETE 的對齊證據摘要、當責紀錄、需上游修正的文件不一致與自行裁決的衝突、任務路徑之外新增或修改的檔案、套用的憲法檔與被覆寫的內建 Rule，以及文件未規定而自行決定的事項。
+1. READ 讀取 tasks.md 確認全部任務已為 [X]，執行整個 truth 套件，以 uv run 執行 dsl-refine skill 的 `check_trace.py`（位於 `.claude/skills/dsl-refine` 的 scripts 目錄）`--plan <plan 目錄>` 檢查本 plan 前綴的檢查點覆蓋與整個 truth 的追溯 tag，並交給 truth-delta 以「檢查」動作確認紀錄與實際異動一致；向使用者回報完成的 Phase 與任務數、上述驗證結果、MODIFY 與 DELETE 的對齊證據摘要、當責紀錄、需上游修正的文件不一致與自行裁決的衝突、任務路徑之外新增或修改的檔案、套用的憲法檔與被覆寫的內建 Rule，以及文件未規定而自行決定的事項。
 
 ## Phase 6 -- 交付
 1. WRITE 第 5 階段的驗證全部通過時，依 `rules/交付-規範.md` 列出將要 commit 的檔案範圍與 commit message 草稿，詢問使用者是否以 git commit 交付本 plan；任一驗證未通過時不詢問，回報未通過項目；未獲回答前停止。

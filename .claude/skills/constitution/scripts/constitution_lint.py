@@ -2,7 +2,10 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Lint the constitution files: Applies To header, 引用 / 驗證 paths and RuleFile structure.
+"""Lint the constitution files: Applies To header and root, 引用 / 驗證 paths and RuleFile structure.
+
+An artifact file's Applies To must point into the current layout: `specs/plans/...` (plan artifacts),
+`specs/truth/...` (current truth) or `<workspace>/**` for a top-level workspace other than specs/.
 
 Usage:
     uv run scripts/constitution_lint.py --root .claude/constitution
@@ -14,15 +17,34 @@ from pathlib import Path
 
 RULE_H1 = re.compile(r"^# Rule (\d+) - .+ \[(MUST|SHOULD|MAY)\]$")
 BACKTICK = re.compile(r"`([^`]+)`")
+SPEC_ROOTS = ("specs/plans/", "specs/truth/")
+WORKSPACE = re.compile(r"^[^/*?\[\]]+/\*\*$")
 
 
-def lint_file(path: Path, root: Path) -> list[str]:
+def applies_root_error(glob: str) -> str | None:
+    # Return why an Applies To glob falls outside the current layout, or None when it is valid.
+    if glob.startswith(SPEC_ROOTS):
+        return None
+    if WORKSPACE.match(glob) and not glob.startswith("specs/"):
+        return None
+    return (f"Applies To must start with {' or '.join(SPEC_ROOTS)}, or be '<workspace>/**' "
+            f"for a top-level workspace other than specs/: {glob}")
+
+
+def lint_file(path: Path, root: Path, artifact: bool) -> list[str]:
     # Return violations of one constitution file as "<file>: <message>" lines.
+    # artifact marks skills/<skill>/<產出物>.md, whose Applies To must point into the current layout.
     rel = path.relative_to(root).as_posix()
     lines = path.read_text(encoding="utf-8").splitlines()
     errors: list[str] = []
     if not lines or not lines[0].startswith("- Applies To："):
         errors.append(f"{rel}: first line must start with '- Applies To：'")
+    elif artifact:
+        globs = BACKTICK.findall(lines[0])
+        if not globs:
+            errors.append(f"{rel}: Applies To must name one glob in backticks")
+        elif (error := applies_root_error(globs[0])):
+            errors.append(f"{rel}: {error}")
 
     for line in lines:
         if line.startswith("- 引用："):
@@ -78,9 +100,13 @@ def main() -> int:
     errors: list[str] = []
     if not (root / "CONSTITUTION.md").is_file():
         errors.append("CONSTITUTION.md: missing")
-    files = sorted((root / "shared").glob("*.md")) + sorted((root / "skills").glob("*/*.md"))
-    for path in files:
-        errors.extend(lint_file(path, root))
+    shared = sorted((root / "shared").glob("*.md"))
+    artifacts = sorted((root / "skills").glob("*/*.md"))
+    files = shared + artifacts
+    for path in shared:
+        errors.extend(lint_file(path, root, artifact=False))
+    for path in artifacts:
+        errors.extend(lint_file(path, root, artifact=True))
 
     for error in errors:
         print(error)

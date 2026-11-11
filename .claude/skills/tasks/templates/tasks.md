@@ -134,7 +134,7 @@
 
 - [ ] T{{task id}} `驗證` 以隨機順序執行 `specs/truth/features/{{endpoint}}` 的全套 feature 並確認全綠
   - Why: {{why this task must bind these references}}
-- [ ] T{{task id}} `驗證` 以 /dsl-refine 的 check_trace.py 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋
+- [ ] T{{task id}} `驗證` 以 /dsl-refine 的 `check_trace.py --plan <plan 目錄>` 確認本 plan 前綴的 acceptance 檢查點都有端點 Example 覆蓋
   - Must Read:
     - `features/acceptance/{{topic}}.feature`
   - Why: {{why this task must bind these references}}

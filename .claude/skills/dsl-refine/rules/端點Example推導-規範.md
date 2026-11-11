@@ -1,12 +1,12 @@
 # Rule 1 - 每個端點 Example 都錨定 acceptance 檢查點或 spec 編號 [MUST]
 - 每個端點 Example 都只驗某個 acceptance 檢查點中屬於該端的職責段，或依 `rules/規格補充-規範.md` 補出的某條 spec 需求，並以 `@ac:` 或 `@spec:` 追溯 tag 指向它。
-- `analysis/` 與 plan.md 只回答「誰負責」與「怎麼落地」；只存在於契約、在 acceptance 與 spec 都找不到對應的項目（如未授權、格式損壞的請求），不寫成 Example，留到回報列出。
+- truth 的契約與資料表（`specs/truth/contracts/`、`specs/truth/data/`）、plan 的 `ui/frontend.md` 與 plan.md 只回答「誰負責」與「怎麼落地」；只存在於契約、在 acceptance 與 spec 都找不到對應的項目（如未授權、格式損壞的請求），不寫成 Example，留到回報列出。
 
 ## Good Example
 - Example 驗的是檢查點 1-1 中後端的那一段，tag 指回該檢查點。
 
 ```
-@ac:訂單成立與付款:1-1
+@ac:003/訂單成立與付款:1-1
 Example: 購物車有 1 件無線耳機時送出訂單
   Given "小芳" 的購物車中有 "無線耳機" 1 件
   When "小芳" 送出訂單
@@ -17,7 +17,7 @@ Example: 購物車有 1 件無線耳機時送出訂單
 - openapi.yaml 定義了 401，但 acceptance 與 spec 都沒有寫到未登入，仍被寫成 Example，還硬掛一個不相干的 tag。
 
 ```
-@ac:訂單成立與付款:1-1
+@ac:003/訂單成立與付款:1-1
 Example: 未登入送出訂單被拒絕
   Given 訪客尚未登入
   When 訪客送出訂單
@@ -33,7 +33,7 @@ Example: 未登入送出訂單被拒絕
 - 要驗的是同一筆訂單真的走過一次失敗付款後，仍能在保留時間內改用另一種方式付款成功；用 Given 直接造出「失敗過一次」的資料，測不到失敗路徑留下的狀態是否允許重試，所以寫成 journey。
 
 ```
-@ac:訂單成立與付款:2-1 @ac:訂單成立與付款:2-2 @journey
+@ac:003/訂單成立與付款:2-1 @ac:003/訂單成立與付款:2-2 @journey
 Example: 信用卡付款失敗後改用 LINE Pay 付款成功
   Given "阿哲" 的購物車中有 "無線耳機" 1 件
   When "阿哲" 送出訂單
@@ -47,7 +47,7 @@ Example: 信用卡付款失敗後改用 LINE Pay 付款成功
 - 後端把 acceptance 第 1 條 Journey 從送出訂單到出貨整條重抄；出貨前的每個狀態都能用 Given 直接準備，應拆成原子 Example。
 
 ```
-@ac:訂單成立與付款:1-1 @ac:訂單成立與付款:1-2 @ac:訂單成立與付款:1-3 @journey
+@ac:003/訂單成立與付款:1-1 @ac:003/訂單成立與付款:1-2 @ac:003/訂單成立與付款:1-3 @journey
 Example: 從送出訂單到出貨
   Given "小芳" 的購物車中有 "無線耳機" 1 件
   When "小芳" 送出訂單
@@ -66,7 +66,7 @@ Example: 從送出訂單到出貨
 - 第 3 條 Journey 的檢查點 2 之前，訂單已因逾時取消、可售數量已回到 10，折疊成兩句 Given。
 
 ```
-@ac:訂單成立與付款:3-2
+@ac:003/訂單成立與付款:3-2
 Example: 已取消的訂單再次付款
   Given "小美" 有一筆狀態為 "已取消" 的訂單
   And "無線耳機" 的可售數量為 10
@@ -141,7 +141,7 @@ backend：Then "小美" 的付款被拒絕
 - 由「失敗後可售數量仍為 9」推出「失敗時又扣一次」的錯誤實作。
 
 ```
-@ac:訂單成立與付款:2-1
+@ac:003/訂單成立與付款:2-1
 抓得到的錯誤實作：付款失敗時再扣一次可售數量，變成 8。
 ```
 
@@ -153,15 +153,15 @@ backend：Then "小美" 的付款被拒絕
 ```
 
 # Rule 7 - acceptance 與上游衝突時以 acceptance 為準 [MUST]
-- plan.md、`analysis/`、research.md 或 techstack.md 與 acceptance 不一致時，依 acceptance 撰寫，不修改上游文件，並在回報中列出衝突與應修正的上游檔。
+- plan.md、ui/frontend.md、research.md 或 truth 的契約、資料表、techstack.md 與 acceptance 不一致時，依 acceptance 撰寫，不修改上游文件；衝突交給 /truth-delta 記錄時寫入待和解（部位、衝突內容與建議 owner），並在回報中列出。
 - acceptance 的動作照字面在上游參數下得不到它寫的結果時（例如「重新整理頁面」只需幾百毫秒，觸發不了 6 秒的斷線判定，卻寫了對手看到斷線倒數），採用能讓該檢查點成立的解讀，並在回報中列為待使用者確認的判斷。
 
 ## Good Example
-- openapi.yaml 的保留時間預設為 30 分鐘，acceptance 寫 15 分鐘；依 acceptance 寫，並回報衝突。
+- openapi.yaml 的保留時間預設為 30 分鐘，acceptance 寫 15 分鐘；依 acceptance 寫，衝突寫入待和解並回報。
 
 ```
 dsl.md 預設參數：• `待付款保留時間`：整數；預設為 15。
-回報：analysis/openapi.yaml 的保留時間為 30 分鐘，與 acceptance〈訂單成立與付款〉的 15 分鐘衝突，應修正 openapi.yaml。
+待和解：`openapi.yaml › components.schemas.Order` 的保留時間為 30 分鐘，與 acceptance〈訂單成立與付款〉的 15 分鐘衝突；建議 owner /api-plan。
 ```
 
 ## Bad Example
@@ -178,7 +178,7 @@ dsl.md 預設參數：• `待付款保留時間`：整數；預設為 30。
 - openapi.yaml 沒有「訂單已取消」的錯誤碼，列為上游缺口。
 
 ```
-回報：上游缺口：analysis/openapi.yaml 沒有付款被拒且原因為「訂單已取消」的錯誤碼；`拒絕原因對照` 待補。
+回報：上游缺口：specs/truth/contracts/openapi.yaml 沒有付款被拒且原因為「訂單已取消」的錯誤碼；`拒絕原因對照` 待補。
 ```
 
 ## Bad Example
@@ -199,7 +199,7 @@ dsl.md 預設參數：• `待付款保留時間`：整數；預設為 30。
 ```
 Rule: 付款成功後訂單必須成立
 
-  @ac:訂單成立與付款:1-2
+  @ac:003/訂單成立與付款:1-2
   Example: 小芳以信用卡付款 2990 元
     Given "小芳" 有一筆待付款的訂單，金額為 2990
     When "小芳" 以 "信用卡" 付款成功
@@ -207,7 +207,7 @@ Rule: 付款成功後訂單必須成立
 
 Rule: 付款成功後會員必須收到確認通知
 
-  @ac:訂單成立與付款:1-2
+  @ac:003/訂單成立與付款:1-2
   Example: 小芳付款成功後的通知
     Given "小芳" 有一筆待付款的訂單，金額為 2990
     When "小芳" 以 "信用卡" 付款成功
@@ -220,7 +220,7 @@ Rule: 付款成功後會員必須收到確認通知
 ```
 Rule: 付款成功後訂單必須成立並通知會員
 
-  @ac:訂單成立與付款:1-2
+  @ac:003/訂單成立與付款:1-2
   Example: 小芳以信用卡付款 2990 元
     Given "小芳" 有一筆待付款的訂單，金額為 2990
     When "小芳" 以 "信用卡" 付款成功

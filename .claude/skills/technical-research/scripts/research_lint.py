@@ -4,8 +4,11 @@
 # ///
 """List structural violations of a research.md written from the technical-research skill's research template.
 
+The 依賴授權 section holds a table of the runtime packages this plan adds or changes, or the single
+line `本次未新增或變更 runtime 依賴。` when there are none.
+
 Usage:
-    uv run scripts/research_lint.py --research <research.md>
+    uv run scripts/research_lint.py --research <specs/plans/NNN-name/research.md>
 """
 import argparse
 import re
@@ -58,6 +61,8 @@ _LICENSE_HEAD = "## 依賴授權"
 _SOURCES_HEAD = "## Sources"
 _FIELD = re.compile(r"^- \*\*([^*]+)\*\*[:：]")
 _LICENSE_TABLE_HEAD = re.compile(r"^\|\s*套件\s*\|\s*授權\s*\|\s*備註\s*\|$")
+# Accepted in place of the license table when this plan adds or changes no runtime package.
+_NO_LICENSE_CHANGE = "本次未新增或變更 runtime 依賴。"
 # Field order inside an R section: Decision, Rationale, supplementary labels, Alternatives considered.
 _RANK = {"Decision": 0, "Rationale": 1, "Alternatives considered": 3}
 _SUPPLEMENTARY = 2
@@ -131,12 +136,19 @@ def check_r_section(n: int, head: str, body: list[tuple[int, str]], out: list[st
 
 
 def check_license(n: int, body: list[tuple[int, str]], out: list[str]) -> None:
+    # Either a table of this plan's new / changed runtime packages, or the single no-change note.
     rows = [(k, line) for k, line in body if line.startswith("|")]
-    if not rows or not _LICENSE_TABLE_HEAD.match(rows[0][1]):
+    if not rows:
+        if not any(line.strip() == _NO_LICENSE_CHANGE for _, line in body):
+            out.append(f"line {n}: {_LICENSE_HEAD} must hold the table '| 套件 | 授權 | 備註 |' of new or changed "
+                       f"runtime packages, or the single line '{_NO_LICENSE_CHANGE}'")
+        return
+    if not _LICENSE_TABLE_HEAD.match(rows[0][1]):
         out.append(f"line {n}: {_LICENSE_HEAD} must start with the table header '| 套件 | 授權 | 備註 |'")
         return
     if len(rows) < 3:
-        out.append(f"line {rows[0][0]}: {_LICENSE_HEAD} table has no dependency row")
+        out.append(f"line {rows[0][0]}: {_LICENSE_HEAD} table has no dependency row; "
+                   f"write the single line '{_NO_LICENSE_CHANGE}' instead of an empty table")
 
 
 def check_sources(n: int, body: list[tuple[int, str]], out: list[str]) -> None:
@@ -150,7 +162,7 @@ def main() -> int:
     args = parser.parse_args()
     research = Path(args.research)
     if not research.is_file():
-        sys.stderr.write(f"error: '{research}' is not a file; pass --research <feature dir>/research.md\n")
+        sys.stderr.write(f"error: '{research}' is not a file; pass --research <specs/plans/NNN-name>/research.md\n")
         return 2
     lines = research.read_text(encoding="utf-8").splitlines()
     out: list[str] = []

@@ -3,9 +3,12 @@ info:
   title: {{api title}}
   version: {{api version}}
   description: |
-    `後端端點` 的 HTTP API 契約，由 api-plan 依 plan.md 的系統介面盤點產出。
-    每個 tag 對應 plan.md 的一個後端系統介面，名稱一字不差；即時事件見同目錄的 asyncapi.yaml。
+    `後端端點` 的 HTTP API 契約，屬於 Truth：描述系統「現在」的完整 API，全專案只有這一份（`specs/truth/contracts/openapi.yaml`）。
+    由 api-plan 依各 plan 的 plan.md 系統介面盤點，直接在本檔新增、修改或刪除；每次異動逐項記在該 plan 的 `truth-delta.md`，本檔不寫沿革。
+    每個 tag 對應一個後端系統介面，名稱一字不差；即時事件見同目錄的 asyncapi.yaml。
     每支 API 的錯誤回應各自列出可能的錯誤碼與發生情況，錯誤本體一律使用 `Error` 格式。
+
+    **編號**：需求與決策編號一律帶 plan 前綴。`{{plan number}}/FR-001` 指 `specs/plans/{{plan directory name}}/spec.md` 的 FR-001，`research {{plan number}}/R1` 指同一個 plan 的 research.md 的 R1。
 servers:
   - url: {{server url}}
     description: {{server description}}

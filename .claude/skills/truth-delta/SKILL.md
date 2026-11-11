@@ -19,7 +19,7 @@ compatibility: Requires Python >=3.11 and uv
 2. WRITE 向呼叫者回報三份清單：需先交給 clarify 的高影響項目、已確認項目、可直接修改的低風險項目；呼叫者取得 clarify 的拍板結果後才修改高影響項目。
 
 ## Phase 4 -- 記錄與檢查
-1. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/check_delta.py --plan <plan 目錄> [--section <段落>]`，以語義單元比對 truth-delta.md 與「Base 到工作目錄」之間 `specs/truth/` 的實際異動，取得：未記錄的異動（含動作、標準部位與改前改後內容）、動作或部位與實際不符的列、已記錄卻沒有異動的列、同一部位重複的列，以及摘要或原因留空的列；動作為檢查時把結果直接交回呼叫者，不執行後續步驟。
+1. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/check_delta.py --plan <plan 目錄> [--section <段落> ...]`，以語義單元比對 truth-delta.md 與「Base 到工作目錄」之間 `specs/truth/` 的實際異動，取得：未記錄的異動（含動作、標準部位與改前改後內容）、動作或部位與實際不符的列、已記錄卻沒有異動的列、同一部位重複的列，以及摘要或原因留空的列；動作為檢查時把結果直接交回呼叫者，不執行後續步驟。
 2. THINK 依 `rules/摘要-規範.md`，為每個未記錄的異動與摘要留空的列寫出摘要。
 3. THINK 依 `rules/原因-規範.md`，從呼叫者傳入的依據檔與 clarify 拍板結果，為每個未記錄的異動與原因留空的列找出原因；找不到依據的異動列為「超出宣告範圍」，交回呼叫者向使用者確認，不自行寫入。
 4. WRITE 依 `templates/truth-delta.md` 的段落格式並參照 `templates/truth-delta.example.md` 更新該段落：未記錄的語義單元追加在段落末尾；已存在的就地更新動作、摘要與原因；刪除已無異動的列。

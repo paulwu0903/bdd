@@ -1,7 +1,7 @@
 Feature: 購物車
   會員把商品加入購物車、累加件數、庫存檢查與運費計算。
 
-  # 來源：specs/003-online-shop/features/acceptance/ 與 specs/003-online-shop/spec.md；句型定義見同目錄 dsl.md。
+  # 來源：specs/plans/003-online-shop/、specs/plans/005-cart-limit/；句型定義見 specs/truth/features/backend/*/dsl.md。
 
   Background:
     Given 會員 "小芳" 已註冊
@@ -13,7 +13,7 @@ Feature: 購物車
 
   Rule: 重複加入同一商品必須累加件數
 
-    @ac:購物車與運費:1-1
+    @ac:003/購物車與運費:1-1
     Example: 已有 2 件的 A100 再加入 1 件
       Given "小芳" 的購物車已有 "A100" 共 2 件
       When "小芳" 把 "A100" 加入購物車 1 件
@@ -21,7 +21,7 @@ Feature: 購物車
 
   Rule: 庫存為 0 的商品不得加入購物車
 
-    @ac:購物車與運費:2-1
+    @ac:003/購物車與運費:2-1
     Example: 庫存 0 件的 B200
       Given "小芳" 的購物車是空的
       When "小芳" 把 "B200" 加入購物車 1 件
@@ -29,7 +29,7 @@ Feature: 購物車
 
   Rule: 小計未達免運門檻必須加收運費
 
-    @ac:購物車與運費:1-2
+    @ac:003/購物車與運費:1-2
     Example: 只買 1 件 450 元的 C300
       Given "小芳" 的購物車是空的
       When "小芳" 把 "C300" 加入購物車 1 件
@@ -38,7 +38,7 @@ Feature: 購物車
 
   Rule: 購物車內容改變後必須依新小計重算運費
 
-    @ac:購物車與運費:1-2 @ac:購物車與運費:1-3 @journey
+    @ac:003/購物車與運費:1-2 @ac:003/購物車與運費:1-3 @journey
     Example: 先放 1 件 C300 未達免運，再加 1 件 A100 跨過門檻
       Given "小芳" 的購物車是空的
       When "小芳" 把 "C300" 加入購物車 1 件
@@ -49,7 +49,7 @@ Feature: 購物車
 
   Rule: 單次加入件數不得超過購買上限
 
-    @ac:購物車與運費:3-1 @ac:購物車與運費:3-2
+    @ac:005/單次購買上限:1-1 @ac:005/單次購買上限:1-2
     Scenario Outline: 一次加入 <件數> 件 A100
       Given "小芳" 的購物車是空的
       When "小芳" 把 "A100" 加入購物車 <件數> 件

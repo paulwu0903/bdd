@@ -2,13 +2,17 @@
 
 ## Project Structure
 
-### Documentation (this feature)
+### Documentation (plan package 與本次修改的 truth)
 
 ```text
-{{documentation tree}}
+specs/
+├── plans/{{plan directory name}}/      # Plan：本次要改什麼、怎麼做
+{{plan package tree}}
+└── truth/                         # Truth：系統現在是什麼（全專案一份，本次就地修改）
+{{modified truth tree}}
 ```
 
-### Source Code (repository root)
+### Source Code (repository root，只列本次新增、修改、刪除的檔案)
 
 ```text
 {{source code tree}}
@@ -24,6 +28,7 @@
 
 {{interface number}}. `{{interface name}}`
     - 端點類型：`{{endpoint type}}`
+    - 異動：{{新增|修改既有|刪除既有}}
     - 主要介面：{{main interface}}
     - 需求原文依據：{{requirement source}}
 

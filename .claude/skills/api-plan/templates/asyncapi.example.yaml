@@ -3,8 +3,11 @@ info:
   title: 購物車與結帳即時事件
   version: 0.1.0
   description: |
-    `後端端點` 的即時事件契約，由 api-plan 依 plan.md 的系統介面盤點產出；HTTP API 見同目錄的 openapi.yaml。
+    `後端端點` 的即時事件契約，屬於 Truth：描述系統「現在」的完整即時事件，全專案只有這一份（`specs/truth/contracts/asyncapi.yaml`）。
+    由 api-plan 依各 plan 的 plan.md 系統介面盤點，直接在本檔新增、修改或刪除；每次異動逐項記在該 plan 的 `truth-delta.md`，本檔不寫沿革。HTTP API 見同目錄的 openapi.yaml。
     本文件以伺服器的角度描述：`send` 表示伺服器推播給前端，`receive` 表示伺服器接收前端送來的訊息。
+
+    **編號**：需求與決策編號一律帶 plan 前綴。`001/FR-001` 指 `specs/plans/001-shopping-cart/spec.md` 的 FR-001，`research 001/R1` 指同一個 plan 的 research.md 的 R1。
   tags:
     - name: 購物車通知 API 介面
       description: 購物車頁面的連線、商品售完與價格變動推播、斷線重連後的狀態取回
@@ -45,7 +48,7 @@ operations:
       - 推播後不自動移除購物車項目，由使用者決定移除；此時呼叫 `createOrder` 會回 409 `OUT_OF_STOCK`
       - 推播失敗不影響結帳交易；前端重連後以 `getCart` 取回最新狀態，不補送漏掉的事件
 
-      **對應需求**：FR-012、NFR-003
+      **對應需求**：001/FR-012、001/NFR-003
     tags:
       - name: 購物車通知 API 介面
 
@@ -61,7 +64,7 @@ operations:
       - 商品價格調整後推播給購物車含該商品的所有 session
       - 推播只供顯示提示，金額仍以 `getCart` 與 `createOrder` 的伺服器計算為準
 
-      **對應需求**：FR-013
+      **對應需求**：001/FR-013
     tags:
       - name: 購物車通知 API 介面
 

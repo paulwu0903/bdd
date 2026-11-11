@@ -27,5 +27,5 @@ metadata:
 4. WRITE 驗證方式為 script 的 Rule，依 `rules/驗證程式-規範.md` 撰寫 `.claude/constitution/checks/<名稱>.py`。
 
 ## Phase 4 -- 回檢與影響
-1. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/constitution_lint.py --root .claude/constitution`，取得檔首、引用路徑、驗證路徑與 Rule 格式的違規清單；有違規即修正後重跑。
-2. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/affected.py --root .claude/constitution --repo <repository root>`，對 Applies To 涵蓋的既有產出物執行全部 script 驗證，取得不合規清單，不修改任何產出物；最後向使用者回報異動的檔案、被覆寫的內建 Rule、需逐條自檢的 Rule 與不合規清單。
+1. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/constitution_lint.py --root .claude/constitution`，取得檔首、Applies To 是否指向現行結構（`specs/plans/`、`specs/truth/` 或 `<工作區>/**`）、引用路徑、驗證路徑與 Rule 格式的違規清單；有違規即修正後重跑。
+2. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/affected.py --root .claude/constitution --repo <repository root>`，對 Applies To 涵蓋的 truth 與未交付 plan 的既有產出物執行全部 script 驗證，取得依 owner skill 分組的不合規清單與被跳過的凍結 plan（truth-delta.md 的 Status 為已交付，或沒有 truth-delta.md 的舊制 plan），不修改任何產出物；最後向使用者回報異動的檔案、被覆寫的內建 Rule、需逐條自檢的 Rule、依 owner skill 分組的不合規清單與跳過的 plan，並說明 truth 的不合規須由該 owner skill 在 plan branch 上修正並經 truth-delta 記錄。

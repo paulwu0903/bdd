@@ -7,11 +7,20 @@
 Usage:
     uv run scripts/verify_features.py --feature-dir <features/<endpoint>> --dsl <features/<endpoint>/dsl.md>
     uv run scripts/verify_features.py --feature-dir specs/truth/features/<endpoint> --dsl-root specs/truth/features/<endpoint>
+        [--only <feature file> ...] [--only-delta <specs/plans/NNN-name/truth-delta.md>]
+
+Scope (--only / --only-delta): per-file checks (V1 tag / title presence and format, V2, V3, V5-V9) are
+reported only for the listed feature files; every feature file is still parsed, and cross-file checks
+(V1 duplicate title when either occurrence is listed, V4, V10, V11) are judged over the whole endpoint.
+--only-delta takes the feature files named in the `## /dsl-refine — truth/features/` section of a
+plan's truth-delta.md (paths relative to specs/truth/features/); files that no longer exist (deleted)
+are skipped. Without either flag every feature file is checked.
 
 Checks (one line per violation on stdout, exit 1 when any):
   V1 every Example / Scenario Outline has, on the tag lines directly above it, at least one trace tag
-     `@ac:<主題>:<Journey 序>-<檢查點序>` or `@spec:<FR-nnn|NFR-nnn>`; every trace tag is well formed; trace tags sit only above
-     Example / Scenario Outline; every title is non-empty and unique within the endpoint
+     `@ac:<主題>:<Journey 序>-<檢查點序>` or `@spec:<FR-nnn|NFR-nnn>`; every trace tag is well formed (with
+     --dsl-root the plan prefix is required: `@ac:<NNN>/<主題>:<J>-<C>`, `@spec:<NNN>/<FR|NFR-nnn>`); trace tags
+     sit only above Example / Scenario Outline; every title is non-empty and unique within the endpoint
   V2 every Example has Given, When and Then steps in that order (Background steps count first;
      And / But continue the previous keyword); an atomic Example has exactly one When step; an
      Example tagged `@journey` may interleave When and
@@ -25,6 +34,8 @@ Checks (one line per violation on stdout, exit 1 when any):
   V8 a Data Table appears exactly on patterns whose Data Table 參數 cell declares columns
      (`• `欄位`：必填／選填；…`); headers use declared names; required columns are present
   V9 layout is Feature > Rule > Example: no plain Scenario, every Example sits under a Rule
+  V10 (--dsl-root) a DSL pattern is defined in more than one row across the endpoint's dsl.md files
+  V11 (--dsl-root) a `## 附錄` section appears in a dsl.md outside the 平臺共用 module
 """
 import argparse
 import re
@@ -82,6 +93,10 @@ BANNED_TEXT = ["/api", "快照", "fill(", "expect("]
 # Error-code identifiers such as OUT_OF_STOCK must be written as business reasons.
 ERROR_CODE = re.compile(r"(?<![A-Za-z0-9_])[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+(?![A-Za-z0-9_])")
 TRACE_TAG = re.compile(r"^@ac:[^\s:@]+:\d+-\d+$|^@spec:(?:\d{3}/)?(?:FR|NFR)-\d+$")
+# Truth mode (--dsl-root): every trace tag carries the plan prefix NNN/.
+PREFIXED_TAG = re.compile(r"^@ac:\d{3}/[^\s:@/]+:\d+-\d+$|^@spec:\d{3}/(?:FR|NFR)-\d+$")
+SHARED_MODULE = "平臺共用"
+DELTA_FEATURES = "## /dsl-refine — truth/features/"
 JOURNEY_TAG = "@journey"
 # Collapsed keyword runs of a journey: Given first, an optional check right after it, then When/Then pairs.
 JOURNEY_SHAPE = re.compile(r"^GT?(WT)+$")
@@ -130,7 +145,7 @@ def parse_dsl(text: str) -> tuple[dict[str, list[Pattern]], set[str]]:
     tables: dict[str, list[Pattern]] = {k: [] for k in KEYWORDS}
     names: set[str] = set()
     section = None
-    for line in text.splitlines():
+    for n, line in enumerate(text.splitlines(), 1):
         if line.startswith("#"):
             m = re.match(r"^## (Given|When|Then) 句型", line)
             section = m.group(1) if m else None
@@ -147,7 +162,9 @@ def parse_dsl(text: str) -> tuple[dict[str, list[Pattern]], set[str]]:
         cols = re.findall(r"• `([^`]+)`：(必填|選填)", cells[3])
         names.update(params)
         names.update(bullets(cells[4]))
-        tables[section].append(Pattern(section, m.group(1), params, dict(cols) if cols else None))
+        pattern = Pattern(section, m.group(1), params, dict(cols) if cols else None)
+        pattern.line = n
+        tables[section].append(pattern)
     return tables, names
 
 
@@ -165,24 +182,37 @@ def banned_in(text: str) -> list[str]:
 
 
 class Checker:
-    def __init__(self, tables: dict[str, list[Pattern]], names: set[str]) -> None:
+    def __init__(self, tables: dict[str, list[Pattern]], names: set[str], prefixed: bool = False,
+                 only: set[Path] | None = None) -> None:
         self.tables = tables
         self.names = names
+        self.prefixed = prefixed  # truth mode: trace tags must carry NNN/
+        self.only = only  # None = every file is in scope for per-file checks
+        self.in_scope = True
+        self.scoped_files = 0
         self.errors: list[str] = []
         self.used: set[tuple[str, str]] = set()
-        self.titles: dict[str, str] = {}  # Example title -> first place it was seen
+        self.titles: dict[str, tuple[str, bool]] = {}  # Example title -> (first place seen, that file in scope)
         self.rules = 0
         self.examples = 0
 
     def err(self, code: str, where: str, msg: str) -> None:
+        # Per-file violation: dropped for files outside the --only scope.
+        if self.in_scope:
+            self.errors.append(f"{code} {where}: {msg}")
+
+    def cross(self, code: str, where: str, msg: str) -> None:
+        # Cross-file violation: judged over the whole endpoint regardless of scope.
         self.errors.append(f"{code} {where}: {msg}")
 
     def check_banned(self, where: str, what: str, text: str) -> None:
         for w in banned_in(text):
             self.err("V6", where, f'{what} contains "{w}"')
 
-    def check_file(self, path: Path) -> None:
-        self.file = path.name
+    def check_file(self, path: Path, label: str) -> None:
+        self.file = label
+        self.in_scope = self.only is None or path.resolve() in self.only
+        self.scoped_files += 1 if self.in_scope else 0
         self.feature_bg: list[str] = []
         self.rule_bg: list[str] = []
         self.rule_seen = False
@@ -204,8 +234,12 @@ class Checker:
     def tag_line(self, n: int, s: str) -> None:
         tags = parse_tags(s)
         for t in tags:
-            if t.startswith(("@ac:", "@spec:")) and not TRACE_TAG.match(t):
+            if not t.startswith(("@ac:", "@spec:")):
+                continue
+            if not TRACE_TAG.match(t):
                 self.err("V1", self.where(n), f'trace tag "{t}" must be @ac:<主題>:<Journey 序>-<檢查點序> or @spec:<FR-nnn|NFR-nnn> with no spaces')
+            elif self.prefixed and not PREFIXED_TAG.match(t):
+                self.err("V1", self.where(n), f'trace tag "{t}" needs the plan prefix: @ac:<NNN>/<主題>:<J>-<C> or @spec:<NNN>/<FR-nnn|NFR-nnn>')
         self.pending_tags.extend(tags)
 
     def line(self, n: int, s: str) -> None:
@@ -266,9 +300,11 @@ class Checker:
         if not title.strip():
             self.err("V1", f"{self.file}:{n}", f"{word} has no title")
         elif title.strip() in self.titles:
-            self.err("V1", self.where(n), f"title is already used at {self.titles[title.strip()]}")
+            first, first_in_scope = self.titles[title.strip()]
+            if self.in_scope or first_in_scope:
+                self.cross("V1", self.where(n), f"title is already used at {first}")
         else:
-            self.titles[title.strip()] = f"{self.file}:{n}"
+            self.titles[title.strip()] = (f"{self.file}:{n}", self.in_scope)
         if not any(TRACE_TAG.match(t) for t in tags):
             self.err("V1", self.where(n), f"{word} needs at least one trace tag (@ac:<主題>:<Journey 序>-<檢查點序> or @spec:<FR-nnn|NFR-nnn>) directly above it")
 
@@ -380,12 +416,58 @@ class Checker:
         self.check_banned(where, "step comment", s)
 
 
+def delta_features(delta: Path, root: Path) -> list[Path]:
+    # Feature files named in the features section of a truth-delta.md, resolved under root.
+    files: list[Path] = []
+    in_section = False
+    for line in delta.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            in_section = line.strip() == DELTA_FEATURES
+            continue
+        if not in_section or not line.startswith("|"):
+            continue
+        cells = split_row(line)
+        m = re.fullmatch(r"`([^`]+)`", cells[1]) if len(cells) > 1 else None
+        if not m:
+            continue
+        rel = m.group(1).split(" › ", 1)[0].strip()
+        if rel.endswith(".feature") and (root / rel) not in files:
+            files.append(root / rel)
+    return files
+
+
+def duplicate_patterns(dsls: list[Path], root: Path) -> list[str]:
+    # V10: the same keyword + pattern text defined in more than one dsl.md row.
+    seen: dict[tuple[str, str], list[str]] = {}
+    for d in dsls:
+        tables, _ = parse_dsl(d.read_text(encoding="utf-8"))
+        for kw, rows in tables.items():
+            for p in rows:
+                seen.setdefault((kw, p.text), []).append(f"{d.relative_to(root)}:{p.line}")
+    return [f"V10 {kw} pattern defined {len(at)} times: {text} ({', '.join(at)})"
+            for (kw, text), at in seen.items() if len(at) > 1]
+
+
+def misplaced_appendix(dsls: list[Path], root: Path) -> list[str]:
+    # V11: the shared-rules appendix belongs only to the 平臺共用 module.
+    out = []
+    for d in dsls:
+        if d.parent.name == SHARED_MODULE:
+            continue
+        for n, line in enumerate(d.read_text(encoding="utf-8").splitlines(), 1):
+            if line.startswith("## 附錄"):
+                out.append(f"V11 {d.relative_to(root)}:{n}: appendix belongs only in {SHARED_MODULE}/dsl.md; refer to it from the header instead")
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check one endpoint's Gherkin feature files against its dsl.md for mechanical format violations.")
     parser.add_argument("--feature-dir", required=True, help="Directory holding this endpoint's *.feature files")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--dsl", help="Path to this endpoint's single dsl.md")
     source.add_argument("--dsl-root", help="Endpoint directory whose <module>/dsl.md files are merged (specs/truth/features/<endpoint>)")
+    parser.add_argument("--only", nargs="+", metavar="FEATURE", help="Report per-file violations only for these feature files; cross-file checks still cover the whole endpoint")
+    parser.add_argument("--only-delta", metavar="TRUTH_DELTA", help="Like --only, taking the feature files listed in the features section of this truth-delta.md")
     args = parser.parse_args()
     fdir = Path(args.feature_dir)
     dsls = [Path(args.dsl)] if args.dsl else sorted(Path(args.dsl_root).rglob("dsl.md"))
@@ -397,25 +479,50 @@ def main() -> int:
     if not features:
         sys.stderr.write(f"error: no *.feature files in '{fdir}'; pass --feature-dir <directory holding the feature files>\n")
         return 2
+    only: set[Path] | None = None
+    if args.only or args.only_delta:
+        only = set()
+        all_resolved = {f.resolve() for f in features}
+        for name in args.only or []:
+            path = Path(name).resolve()
+            if path not in all_resolved:
+                sys.stderr.write(f"error: --only file '{name}' is not a *.feature under '{fdir}'; pass feature files of this endpoint\n")
+                return 2
+            only.add(path)
+        if args.only_delta:
+            delta = Path(args.only_delta)
+            if not delta.is_file():
+                sys.stderr.write(f"error: '{delta}' is not a file; pass --only-delta <specs/plans/NNN-name/truth-delta.md>\n")
+                return 2
+            # Delta paths are <endpoint>/<module>/<file>.feature relative to specs/truth/features/.
+            truth_features = fdir.resolve().parent
+            only |= {f.resolve() for f in delta_features(delta, truth_features) if f.resolve() in all_resolved}
+    base = fdir.resolve().parent if args.dsl_root else fdir.resolve()
     tables, names = {}, set()
     for d in dsls:
         t, n = parse_dsl(d.read_text(encoding="utf-8"))
         for kw, rows in t.items():
             tables.setdefault(kw, []).extend(rows)
         names |= n
-    checker = Checker(tables, names)
+    checker = Checker(tables, names, prefixed=bool(args.dsl_root), only=only)
     for f in features:
-        checker.check_file(f)
+        label = str(f.resolve().relative_to(base)) if args.dsl_root else f.name
+        checker.check_file(f, label)
     errors = checker.errors
     for kw, rows in tables.items():
-        for p in rows:
-            if (kw, p.text) not in checker.used:
-                errors.append(f"V4 {kw} pattern never used: {p.text}")
+        for text in dict.fromkeys(p.text for p in rows):
+            if (kw, text) not in checker.used:
+                errors.append(f"V4 {kw} pattern never used: {text}")
+    if args.dsl_root:
+        root = Path(args.dsl_root).resolve().parent
+        resolved = [d.resolve() for d in dsls]
+        errors += duplicate_patterns(resolved, root) + misplaced_appendix(resolved, root)
     for e in errors:
         sys.stdout.write(e + "\n")
     counts = "/".join(f"{k}:{len(v)}" for k, v in tables.items())
+    scope = f"checked={checker.scoped_files} " if only is not None else ""
     sys.stdout.write(
-        f"features={len(features)} patterns={counts} "
+        f"features={len(features)} {scope}patterns={counts} "
         f"rules={checker.rules} examples={checker.examples} violations={len(errors)}\n"
     )
     return 1 if errors else 0

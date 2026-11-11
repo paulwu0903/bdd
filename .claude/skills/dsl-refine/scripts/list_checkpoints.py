@@ -6,11 +6,13 @@
 
 A checkpoint is one maximal run of Then steps (And / But continue the previous keyword) inside a
 Journey Example, numbered in order of appearance; a Then run that follows Given directly also counts.
-Trace key: `@ac:<主題>:<Journey 序>-<檢查點序>`, where 主題 is the file name without `.feature`
+Trace key: `@ac:<NNN>/<主題>:<Journey 序>-<檢查點序>`, where NNN is the plan number taken from the
+directory path (specs/plans/<NNN>-<name>/features/acceptance), 主題 is the file name without `.feature`
 and with whitespace replaced by `_`, and Journey 序 counts Examples in file order.
+Exit 2 when the path does not reveal the plan number.
 
 Usage:
-    uv run scripts/list_checkpoints.py --dir <specs/<NNN>-<name>/features/acceptance>
+    uv run scripts/list_checkpoints.py --dir <specs/plans/<NNN>-<name>/features/acceptance>
 """
 import argparse
 import re
@@ -77,8 +79,17 @@ def theme_of(path: Path) -> str:
     return re.sub(r"\s+", "_", path.stem)
 
 
-def parse_file(path: Path) -> tuple[int, list[Checkpoint]]:
-    theme = theme_of(path)
+def plan_number(acceptance: Path) -> str | None:
+    # <NNN>-<name>/features/acceptance -> NNN
+    d = acceptance.resolve()
+    if d.name != "acceptance" or d.parent.name != "features":
+        return None
+    m = re.match(r"^(\d{3})-", d.parent.parent.name)
+    return m.group(1) if m else None
+
+
+def parse_file(path: Path, nnn: str) -> tuple[int, list[Checkpoint]]:
+    theme = f"{nnn}/{theme_of(path)}"
     feature_bg: list[Step] = []
     rule_bg: list[Step] = []
     journeys: list[tuple[str, list[Step]]] = []
@@ -151,17 +162,21 @@ def render(steps: list[Step]) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="List every checkpoint of a features/acceptance directory with its trace key, preceding steps, When run and Then run.")
-    parser.add_argument("--dir", required=True, help="Path to specs/<NNN>-<name>/features/acceptance")
+    parser.add_argument("--dir", required=True, help="Path to specs/plans/<NNN>-<name>/features/acceptance")
     args = parser.parse_args()
     root = Path(args.dir)
     files = sorted(root.glob("*.feature")) if root.is_dir() else []
     if not files:
-        sys.stderr.write(f"error: no *.feature files in '{root}'; pass --dir <specs/<NNN>-<name>/features/acceptance>\n")
+        sys.stderr.write(f"error: no *.feature files in '{root}'; pass --dir <specs/plans/<NNN>-<name>/features/acceptance>\n")
+        return 2
+    nnn = plan_number(root)
+    if nnn is None:
+        sys.stderr.write(f"error: cannot read the plan number from '{root}'; pass --dir <specs/plans/<NNN>-<name>/features/acceptance>\n")
         return 2
     total = 0
     journeys = 0
     for f in files:
-        count, cps = parse_file(f)
+        count, cps = parse_file(f, nnn)
         journeys += count
         for c in cps:
             total += 1

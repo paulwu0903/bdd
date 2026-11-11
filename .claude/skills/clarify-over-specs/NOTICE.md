@@ -19,7 +19,9 @@ following upstream file was consulted:
 
 The capabilities above were re-expressed as this project's SOP, rules and templates by
 explicit user decision on 2026-10-28. Delegation to the project's `/clarify` skill, the
-Assumptions-based decision trail, the per-question taxonomy label, the SOP / rules /
+Assumptions-based decision trail, the per-question taxonomy label, the eleventh category
+(Current Requirements Consistency), the write-back mode used by other skills, the
+既有需求異動 routing with requirements sync and truth-delta recording, the SOP / rules /
 templates structure and all Traditional Chinese text are original to this project.
 
 ## MIT License (github/spec-kit)

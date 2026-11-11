@@ -215,7 +215,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Resolve a /bdd scope inside one endpoint feature directory into its ordered slices as JSON."
     )
-    parser.add_argument("--feature-dir", required=True, help="Endpoint directory, e.g. specs/<NNN>-<name>/features/backend")
+    parser.add_argument("--feature-dir", required=True, help="Endpoint directory, e.g. specs/truth/features/backend")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--dsl", help="The endpoint's single dsl.md")
     source.add_argument("--dsl-root", help="Endpoint directory whose <module>/dsl.md files are merged (specs/truth/features/<endpoint>)")

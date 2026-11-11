@@ -8,7 +8,7 @@ compatibility: Requires Python >=3.11 and uv
 
 ## Phase 1 -- 確認範疇與輸入
 1. READ 讀取呼叫者指定的階段（red、green、refactor 或 realign）、plan 目錄（`specs/plans/<NNN>-<專案名>/`）與範疇：`specs/truth/features/<端點>/` 單一端點目錄，或同一端點的一或多個 feature 檔、以 `檔案:行號` 指向的 Rule 或 Example；未指定階段或範疇、或範疇跨多個端點時，請使用者改為單一端點的範疇，未指定前停止；呼叫者為 /implement 時本 skill 全程不向使用者提問，各步原本要詢問使用者之處一律改為停止並回報給呼叫者。
-2. DELEGATE 以 uv run 執行 gherkin-and-dsl skill 的 `verify_features.py`（位於 `.claude/skills/gherkin-and-dsl` 的 scripts 目錄）`--feature-dir <端點目錄> --dsl-root <端點目錄>`；缺 dsl.md 或有任何違規時停止，列出違規並交還 /dsl-refine 處理。
+2. DELEGATE 以 uv run 執行 gherkin-and-dsl skill 的 `verify_features.py`（位於 `.claude/skills/gherkin-and-dsl` 的 scripts 目錄）`--feature-dir <端點目錄> --dsl-root <端點目錄> --only-delta <plan 目錄>/truth-delta.md`，只對本 plan 在 truth-delta features 段改過的 feature 檔回報逐檔違規，跨檔檢查仍涵蓋整個端點；缺 dsl.md 或有任何違規時停止，列出違規並交還 /dsl-refine 處理。
 3. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/list_slices.py --feature-dir <端點目錄> --dsl-root <端點目錄> --scope <範疇> [--scope <範疇> ...]`，取得範疇內依 feature 順序排列的 slice（Example 或 Scenario Outline 的檔案、行號、Rule、標題、追溯 tag）與每個 slice 用到的 dsl.md 句型。
 4. READ 讀取 `specs/truth/techstack.md` 與 plan 目錄的 plan.md，取得該端點的 BDD 框架與程式碼根目錄。
 5. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/detect_bdd_stack.py --project <該端程式碼根目錄> --features <端點目錄>`，取得框架（cucumber-js 或 playwright-bdd）、step 目錄、設定是否涵蓋端點目錄，以及產 snippet、dry-run、依 slice 標題執行（跑單一 slice 或跑範疇）、跑全套與列出未使用 step 的指令；偵測不到框架時向使用者確認是否依 techstack.md 安裝，確認後依該框架官方最新文件安裝再重跑本步；設定未涵蓋端點目錄時把它加進設定的 feature 路徑（保留既有路徑，依 script 的 notes 一併調整相關設定）再重跑本步；之後執行 dry-run 確認沒有 ambiguous 步驟，有則停止，列出 ambiguous 的步驟與各自所屬的 feature 與 dsl.md 並交還 /dsl-refine。

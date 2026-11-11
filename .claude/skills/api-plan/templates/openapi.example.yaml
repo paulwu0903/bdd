@@ -3,9 +3,12 @@ info:
   title: 購物車與結帳 API
   version: 0.1.0
   description: |
-    `後端端點` 的 HTTP API 契約，由 api-plan 依 plan.md 的系統介面盤點產出。
-    每個 tag 對應 plan.md 的一個後端系統介面，名稱一字不差；即時事件見同目錄的 asyncapi.yaml。
+    `後端端點` 的 HTTP API 契約，屬於 Truth：描述系統「現在」的完整 API，全專案只有這一份（`specs/truth/contracts/openapi.yaml`）。
+    由 api-plan 依各 plan 的 plan.md 系統介面盤點，直接在本檔新增、修改或刪除；每次異動逐項記在該 plan 的 `truth-delta.md`，本檔不寫沿革。
+    每個 tag 對應一個後端系統介面，名稱一字不差；即時事件見同目錄的 asyncapi.yaml。
     每支 API 的錯誤回應各自列出可能的錯誤碼與發生情況，錯誤本體一律使用 `Error` 格式。
+
+    **編號**：需求與決策編號一律帶 plan 前綴。`001/FR-001` 指 `specs/plans/001-shopping-cart/spec.md` 的 FR-001，`research 001/R1` 指同一個 plan 的 research.md 的 R1。
 servers:
   - url: /api
     description: 與前端同源部署
@@ -32,7 +35,7 @@ paths:
       description: |
         購物車不存在時回傳空購物車，不回 404。
 
-        **對應需求**：FR-001、FR-002
+        **對應需求**：001/FR-001、001/FR-002
       responses:
         '200':
           description: 目前購物車
@@ -55,7 +58,7 @@ paths:
         - 合併後數量不得超過商品庫存與單品上限 99，超過時整筆拒絕，不自動調降
         - 下架商品不得加入
 
-        **對應需求**：FR-003、FR-004
+        **對應需求**：001/FR-003、001/FR-004
       requestBody:
         required: true
         content:
@@ -104,7 +107,7 @@ paths:
         - 數量為 0 視為格式錯誤，移除商品須呼叫 `removeCartItem`
         - 修改後若低於已套用優惠券的門檻，優惠券自動失效並於回應的 `coupon.status` 標示，不回錯誤
 
-        **對應需求**：FR-004、FR-005
+        **對應需求**：001/FR-004、001/FR-005
       requestBody:
         required: true
         content:
@@ -146,7 +149,7 @@ paths:
       description: |
         移除不存在的項目視為成功，回傳目前購物車，因此沒有 404。
 
-        **對應需求**：FR-005
+        **對應需求**：001/FR-005
       responses:
         '200':
           description: 移除後的購物車
@@ -170,7 +173,7 @@ paths:
         - 券碼不分大小寫，比對前去除前後空白
         - 錯誤訊息不透露券的剩餘數量
 
-        **對應需求**：FR-006、FR-007
+        **對應需求**：001/FR-006、001/FR-007
       requestBody:
         required: true
         content:
@@ -202,7 +205,7 @@ paths:
       description: |
         購物車沒有優惠券時視為成功。
 
-        **對應需求**：FR-006
+        **對應需求**：001/FR-006
       responses:
         '200':
           description: 移除後的購物車
@@ -226,7 +229,7 @@ paths:
 
         **交易**：庫存檢查、庫存扣減、優惠券剩餘次數扣減、訂單建立與購物車清空在同一交易完成，任一失敗全部不生效
 
-        **對應需求**：FR-008、FR-009、FR-010、FR-012、NFR-002
+        **對應需求**：001/FR-008、001/FR-009、001/FR-010、001/FR-012、001/NFR-002
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -269,7 +272,7 @@ paths:
       description: |
         只能查詢同一 session 建立的訂單。
 
-        **對應需求**：FR-011
+        **對應需求**：001/FR-011
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:

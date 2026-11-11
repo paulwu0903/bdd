@@ -4,11 +4,15 @@
 # ///
 """List structural violations of a spec.md written from the specify skill's spec template.
 
+The optional `## 既有需求異動` table is also checked against the requirements.md of the plan's Base commit
+(truth-delta.md `**Base**:`); when that is unavailable, the working-tree specs/truth/requirements.md is used.
+
 Usage:
-    uv run scripts/spec_lint.py --spec <spec.md>
+    uv run scripts/spec_lint.py --spec <specs/plans/NNN-name/spec.md> [--requirements <requirements.md>]
 """
 import argparse
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -65,11 +69,13 @@ HEADINGS = [
     (r"## Key Entities", False, False),
     (r"## Success Criteria", True, False),
     (r"### Measurable Outcomes", True, False),
+    (r"## 既有需求異動", False, False),
     (r"## Assumptions", True, False),
 ]
 _ID = r"(?:FR|NFR|SC)-\d{3}[a-z]?"
 _DEF = re.compile(rf"^- \*\*({_ID})\*\*")
-_REF = re.compile(rf"(?<![\w-])({_ID})(?![\w])")
+# A reference preceded by '/' belongs to another plan (e.g. `002/FR-002`) and is not checked against this spec.
+_REF = re.compile(rf"(?<![\w/-])({_ID})(?![\w])")
 _US_HEAD = re.compile(r"^### User Story (\d+) - ")
 _AC = re.compile(r"^\d+\. \*\*Given\*\* .+，\*\*When\*\* .+，\*\*Then\*\* .+")
 _US_FR = re.compile(r"^- \*\*FR-\d{3}[a-z]?\*\*: \S")
@@ -197,9 +203,112 @@ def check_ids(lines: list[str], out: list[str]) -> None:
                 out.append(f"line {n}: {ref} is referenced but never defined")
 
 
+CHANGE_HEADING = "## 既有需求異動"
+CHANGE_HEADER = ["#", "動作", "既有編號", "新內容", "理由", "確認"]
+_CHANGE_ID = re.compile(r"^`(\d{3})/((?:N?FR|SC)-\d{3}[a-z]?)`$")
+_CONFIRM = re.compile(r"^(?:使用者於 \d{4}-\d{2}-\d{2} 確認|低風險)$")
+_SEPARATOR = re.compile(r"^:?-+:?$")
+# Same entry shape as truth-delta check_delta.py requirement_units.
+_REQ_ITEM = re.compile(r"^\s*(?:[-*]\s+\*\*|\|\s*`?)(\d{3}/(?:N?FR|SC)-\d{3}[a-z]?)")
+EMPTY = {"", "—"}
+
+
+def split_cells(line: str) -> list[str]:
+    # Cells of a markdown table row; '\|' is an escaped pipe inside a cell.
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
+
+
+def _git(cwd: Path, *args: str) -> str | None:
+    try:
+        r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def base_requirements(spec: Path) -> tuple[str | None, str]:
+    """Text of requirements.md at the plan's Base commit, falling back to the working tree; plus where it came from."""
+    plan = spec.resolve().parent
+    top = _git(plan, "rev-parse", "--show-toplevel")
+    root = Path(top.strip()) if top else Path.cwd()
+    delta = plan / "truth-delta.md"
+    if top and delta.is_file():
+        m = re.search(r"^\*\*Base\*\*: `?([0-9a-fA-F]{4,40})`?[ \t]*$", delta.read_text(encoding="utf-8"), re.M)
+        if m:
+            shown = _git(root, "show", f"{m.group(1)}:specs/truth/requirements.md")
+            if shown is not None:
+                return shown, f"Base {m.group(1)[:12]}"
+    work = root / "specs" / "truth" / "requirements.md"
+    if work.is_file():
+        return work.read_text(encoding="utf-8"), work.as_posix()
+    return None, work.as_posix()
+
+
+def check_changes(groups: dict[str, list[tuple[int, str]]], spec: Path, override: Path | None, out: list[str]) -> None:
+    body = groups.get(CHANGE_HEADING)
+    if body is None:
+        return
+    own = m.group(1) if (m := re.match(r"^(\d{3})-", spec.resolve().parent.name)) else None
+    table = [(n, line) for n, line in body[1:] if line.strip()]
+    for n, line in table:
+        if not line.lstrip().startswith("|"):
+            out.append(f"line {n}: {CHANGE_HEADING} must contain only its table; move this text elsewhere")
+    rows = [(n, split_cells(line)) for n, line in table if line.lstrip().startswith("|")]
+    if len(rows) < 2 or rows[0][1] != CHANGE_HEADER or not all(_SEPARATOR.match(c) for c in rows[1][1]) or len(rows[1][1]) != 6:
+        at = rows[0][0] if rows else body[0][0]
+        out.append(f"line {at}: {CHANGE_HEADING} table header must be '| " + " | ".join(CHANGE_HEADER) + " |' followed by '|---|---|---|---|---|---|'")
+        return
+    rows = rows[2:]
+    if not rows:
+        out.append(f"line {body[0][0]}: {CHANGE_HEADING} has no rows; omit the whole section")
+        return
+    if override is not None:
+        req_text = override.read_text(encoding="utf-8") if override.is_file() else None
+        source = override.as_posix()
+    else:
+        req_text, source = base_requirements(spec)
+    known = None if req_text is None else {m.group(1) for line in req_text.split("\n") if (m := _REQ_ITEM.match(line))}
+    seen: dict[str, int] = {}
+    for i, (n, cells) in enumerate(rows, 1):
+        if len(cells) != 6:
+            out.append(f"line {n}: {CHANGE_HEADING} row must have 6 cells ({len(cells)} found); escape '|' inside a cell as '\\|'")
+            continue
+        num, action, ref, text, reason, confirm = cells
+        if num != str(i):
+            out.append(f"line {n}: # must be {i} (rows are numbered 1, 2, 3, ... in order), found '{num}'")
+        if action not in ("MODIFY", "DELETE"):
+            out.append(f"line {n}: 動作 must be MODIFY or DELETE, found '{action}'")
+        rm = _CHANGE_ID.match(ref)
+        if not rm:
+            out.append(f"line {n}: 既有編號 must be a backticked plan-qualified ID like `002/FR-002`, found '{ref}'")
+        else:
+            key = f"{rm.group(1)}/{rm.group(2)}"
+            if own is not None and rm.group(1) == own:
+                out.append(f"line {n}: {key} belongs to this plan; edit the requirement in this spec instead of listing it here")
+            if key in seen:
+                out.append(f"line {n}: {key} is already listed in row at line {seen[key]}")
+            else:
+                seen[key] = n
+            if known is None:
+                out.append(f"line {n}: {key} cannot be verified: requirements.md was not found ({source}); sync requirements before referencing them")
+            elif key not in known:
+                out.append(f"line {n}: {key} does not exist in requirements.md ({source}); reference a requirement that exists at the plan's Base")
+        if action == "MODIFY" and text in EMPTY:
+            out.append(f"line {n}: MODIFY row must give the complete new requirement text in 新內容")
+        if action == "DELETE" and text != "—":
+            out.append(f"line {n}: DELETE row must have '—' as 新內容")
+        if not reason:
+            out.append(f"line {n}: 理由 must not be empty")
+        if not _CONFIRM.match(confirm):
+            out.append(f"line {n}: 確認 must be '使用者於 YYYY-MM-DD 確認' or '低風險', found '{confirm}'")
+        elif action == "DELETE" and confirm == "低風險":
+            out.append(f"line {n}: DELETE is always high impact; 確認 must be '使用者於 YYYY-MM-DD 確認'")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="List structural violations of a spec.md written from the specify skill's spec template.")
     parser.add_argument("--spec", required=True, help="Path to the spec.md to check")
+    parser.add_argument("--requirements", help="requirements.md to check 既有需求異動 against instead of the plan's Base version (for testing)")
     args = parser.parse_args()
     spec = Path(args.spec)
     if not spec.is_file():
@@ -216,6 +325,7 @@ def main() -> int:
     check_global_and_system(groups, stories, out)
     check_edge_cases(groups, out)
     check_ids(lines, out)
+    check_changes(groups, spec, Path(args.requirements) if args.requirements else None, out)
     if out:
         sys.stdout.write("\n".join(out) + "\n")
         return 1
