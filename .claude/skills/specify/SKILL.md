@@ -21,7 +21,7 @@ metadata:
 4. THINK 將要問的歧義與高影響的修改、刪除逐題附上選項與權衡比較，向使用者提問；未獲回答前停止，不寫 spec；使用者不同意的修改、刪除改回新增或移出本次範圍；沒有要問的項目則直接進入 Phase 3。
 
 ## Phase 3 -- 推導需求
-1. DELEGATE 以 uv run 執行 constitution skill 的 `affected.py`（位於 `.claude/skills/constitution` 的 scripts 目錄）`--root .claude/constitution --repo <repository root> --file specs/plans/<NNN>-<專案名的 kebab-case 英文名稱>/spec.md`（NNN 為 `specs/plans/` 中最大編號加一），取得適用於 spec.md 的憲法檔清單；檔案尚未建立時只比對路徑。
+1. DELEGATE 以 uv run 執行 constitution skill 的 `affected.py`（位於 `.claude/skills/constitution` 的 scripts 目錄）`--root .claude/constitution --repo <repository root> --file specs/plans/<NNN>-<暫定名稱>/spec.md`（NNN 為 `specs/plans/` 中最大編號加一，暫定名稱為使用者指定的名稱，未指定時為依功能描述擬的小寫 kebab-case 英文名稱），取得適用於 spec.md 的憲法檔清單；檔案尚未建立時只比對路徑。
 2. READ 讀取第 1 步取得的每個憲法檔，本 Phase 後續各步推導時一併遵守，與 `rules/` 衝突時以憲法為準；清單為空則略過。
 3. THINK 依 `rules/UserStory-規範.md` 將功能切成可獨立測試、依價值排序的 User Story，並寫出每個 User Story 的驗收情境。
 4. THINK 依 `rules/EdgeCase-規範.md` 逐類掃描邊界與異常情境，寫出 Edge Cases。
@@ -31,8 +31,8 @@ metadata:
 
 ## Phase 4 -- 開立 plan package
 1. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/git_state.py`，取得是否為 git repo、未 commit 的改動清單，以及目前 branch 上 truth-delta.md 的 Status 不是「已交付」的 plan。
-2. THINK 依第 1 步的結果逐項詢問使用者：不是 git repo 時問是否執行 `git init` 並建立第一個 commit；有未 commit 的改動時問「先 commit、帶著改動開 branch、取消」；有未交付的 plan 時提醒並問是否繼續；未獲回答前停止，依回答執行，使用者取消則結束，不建立任何檔案。
-3. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/create_feature.py --short-name <專案名的 kebab-case 英文名稱>`，於 `specs/plans/` 下建立新的 `<NNN>-<專案名>` plan 目錄並切換到同名的新 git branch，取得目錄路徑與 branch 名稱。
+2. THINK 定出 branch 名稱並依第 1 步的結果在同一輪詢問使用者：使用者已在功能描述中指定名稱時採用，不符合小寫 kebab-case 英文時提出轉換後的名稱請使用者確認；未指定時以功能描述擬一個小寫 kebab-case 英文名稱作為預設，列出預計建立的 `<NNN>-<名稱>`，使用者可直接採用或改名；不是 git repo 時問是否執行 `git init` 並建立第一個 commit；有未 commit 的改動時問「先 commit、帶著改動開 branch、取消」；有未交付的 plan 時提醒並問是否繼續；只有使用者已指定合格名稱且沒有其他待問項目時不詢問，否則未獲回答前停止，依回答執行，使用者取消則結束，不建立任何檔案。
+3. DELEGATE 以 uv run 執行 `${CLAUDE_SKILL_DIR}/scripts/create_feature.py --short-name <第 2 步定案的名稱>`，於 `specs/plans/` 下建立新的 `<NNN>-<專案名>` plan 目錄並切換到同名的新 git branch，取得目錄路徑與 branch 名稱。
 4. DELEGATE 交給 truth-delta 執行「建立」，傳入 plan 目錄與 branch 名稱，取得 truth-delta.md 的路徑與 Base。
 
 ## Phase 5 -- 寫入、同步並回檢
